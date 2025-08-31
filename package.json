@@ -1,0 +1,17 @@
+{
+  "name": "catty",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "webpack build",
+    "dev": "webpack serve"
+  },
+  "devDependencies": {
+    "html-webpack-plugin": "^5.6.4",
+    "terser-webpack-plugin": "^5.3.14",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.2"
+  }
+}
