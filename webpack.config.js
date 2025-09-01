@@ -8,20 +8,33 @@ module.exports = {
     path: __dirname + "/dist",
     filename: "bundle.js",
   },
-    plugins: [
+  plugins: [
     new HtmlWebpackPlugin({
-      template: './src/template.html',
-      filename: 'index.html',
-      title: 'Canvas Animaatio',
+      template: "./src/template.html",
+      filename: "index.html",
+      title: "Canvas Animaatio",
     }),
   ],
   optimization: {
     minimize: true,
-    minimizer: [new TerserPlugin({
-      terserOptions: {
-        compress: true,
-      }
-    }
-    )],
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          compress: true,
+        },
+      }),
+    ],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.(png|jpe?g|gif)$/i,
+        use: [
+          {
+            loader: "file-loader",
+          },
+        ],
+      },
+    ],
   },
 };

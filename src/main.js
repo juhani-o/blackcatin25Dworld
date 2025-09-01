@@ -4,20 +4,37 @@ import noppa from "./assets/noppa2.png";
 const canvas = document.getElementById("myCanvas");
 const gl = canvas.getContext("webgl2");
 
-let z = 40;
+let z = 20;
+let rot = 0;
+
+let image = new Image();
+image.src = noppa;
+console.log("image ", image, noppa);
 
 // Animaatiosilmukan funktio
 function animate() {
-  W.camera({ z: z });
+  W.camera({ ry: rot, z: z });
   requestAnimationFrame(animate);
 }
 // Start the framework
 W.reset(canvas);
 W.ambient(0.7);
 W.clearColor("8Af");
+W.camera({ ry: rot });
+W.light({ x: 0.5, y: -0.3, z: -0.5 });
 // W.sphere({ n: "ball", size: 2, y: -0.3, z: -10, s: 1 });
-//W.cube({ n: "kuutio", x: 0, y: 0, z: -5, ry: 12, rx: 28, w: 1, h: 1, d: 1 });
-W.camera({ z: z });
+W.cube({
+  n: "kuutio",
+  x: 0,
+  y: 0,
+  z: -5,
+  ry: 12,
+  rx: 28,
+  w: 5,
+  h: 5,
+  d: 5,
+  t: image.currentSrc,
+});
 map1.forEach((maprow, index) => {
   for (let i = 0; i < maprow.length; i++) {
     let merkki = maprow[i];
@@ -34,10 +51,11 @@ map1.forEach((maprow, index) => {
         w: 1,
         h: 1,
         d: 1,
+        t: image,
       });
     }
     if (merkki === "!") {
-      W.sphere({ n: "ball" + i + index, size: 2, x: x, y: y, z: z });
+      W.sphere({ n: "ball" + i + index, size: 1, x: x, y: y, z: z });
     }
   }
 });
