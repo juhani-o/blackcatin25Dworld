@@ -1,6 +1,6 @@
 import "./w.min.full.js";
 import { map1 } from "./maps/maps.js";
-// Haetaan canvas-elementti HTML-dokumentista
+import noppa from "./assets/noppa2.png";
 const canvas = document.getElementById("myCanvas");
 const gl = canvas.getContext("webgl2");
 
