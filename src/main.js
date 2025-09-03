@@ -6,12 +6,36 @@ const gl = canvas.getContext("webgl2");
 
 let z = 20;
 let rot = 0;
+let playerX = 8;
+let playerY = 15;
+let playerXvelocity = 0.01;
+let playerYvelocity = -0.05;
 
 let image = new Image();
 image.src = noppa;
 
+function checkCollision() {
+  let mapSize = map1.length;
+  let character = map1[Math.floor(mapSize - playerY + 1)][Math.round(playerX)];
+  console.log("Character ", character);
+  if (character === "#") {
+    playerYvelocity = 0;
+  }
+}
+
 function animate() {
-  W.camera({ ry: rot, z: z });
+  playerY += playerYvelocity;
+  playerX += playerXvelocity;
+  W.camera({ ry: rot, x: playerX, y: playerY, z: z });
+  checkCollision();
+  W.sphere({
+    n: "player",
+    size: 1,
+    x: playerX,
+    y: playerY,
+    z: 0,
+  });
+
   requestAnimationFrame(animate);
 }
 
@@ -24,10 +48,9 @@ image.onload = function () {
   map1.forEach((maprow, index) => {
     for (let i = 0; i < maprow.length; i++) {
       let merkki = maprow[i];
-      let x = -25 + i;
-      let y = 10 + -index;
+      let x = i;
+      let y = map1.length - index;
       let z = 0;
-
       if (merkki === "#" || merkki === "=") {
         W.cube({
           n: "kuutio" + index + "_" + i,
