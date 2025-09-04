@@ -11,7 +11,7 @@ const EPS = 0.001;
 const GRAVITY = -0.015;
 const JUMP_FORCE = 0.25;
 const MAX_FALL_SPEED = -0.25;
-const FRAME_TIME = 1000 / 30;
+const NORMAL_FPS = 60;
 
 const MAP_H = map1.length;
 const MAP_W = map1[0].length;
@@ -36,67 +36,53 @@ let image = new Image();
 image.src = noppa;
 
 // ----- Apurit: törmäys -----
-
-// Kartta on nyt TOP-DOWN: map1[0] = ylärivi
 function isSolid(tx, ty) {
   if (tx < 0 || tx >= MAP_W) return false;
   if (ty < 0 || ty >= MAP_H) return false;
-  // käännetään y
   return map1[MAP_H - 1 - ty][tx] === "#";
 }
 
 function moveAndCollide(x, y, w, h, dx, dy) {
   let newX = x + dx;
-  let collidedX = false;
-
-  let leftTile = Math.floor(newX / TILE_SIZE);
-  let rightTile = Math.floor((newX + w - EPS) / TILE_SIZE);
-  let bottomTile = Math.floor(y / TILE_SIZE);
-  let topTile = Math.floor((y + h - EPS) / TILE_SIZE);
-
-  for (let ty = bottomTile; ty <= topTile; ty++) {
-    if (dx > 0) {
-      if (isSolid(rightTile, ty)) {
-        collidedX = true;
-        newX = rightTile * TILE_SIZE - w;
-        break;
-      }
-    } else if (dx < 0) {
-      if (isSolid(leftTile, ty)) {
-        collidedX = true;
-        newX = (leftTile + 1) * TILE_SIZE;
-        break;
-      }
-    }
-  }
-
-  x = newX;
-
   let newY = y + dy;
-  let collidedY = false;
+  let collidedX = false;
+  let collidedY = false; // X-akselin törmäystarkistus
 
-  leftTile = Math.floor(x / TILE_SIZE);
-  rightTile = Math.floor((x + w - EPS) / TILE_SIZE);
-  bottomTile = Math.floor(newY / TILE_SIZE);
-  topTile = Math.floor((newY + h - EPS) / TILE_SIZE);
+  let leftTileX = Math.floor(newX / TILE_SIZE);
+  let rightTileX = Math.floor((newX + w - EPS) / TILE_SIZE);
+  let bottomTileY = Math.floor(y / TILE_SIZE);
+  let topTileY = Math.floor((y + h - EPS) / TILE_SIZE);
 
-  for (let tx = leftTile; tx <= rightTile; tx++) {
-    if (dy > 0) {
-      if (isSolid(tx, topTile)) {
-        collidedY = true;
-        newY = topTile * TILE_SIZE - h;
-        break;
-      }
-    } else if (dy < 0) {
-      if (isSolid(tx, bottomTile)) {
-        collidedY = true;
-        newY = (bottomTile + 1) * TILE_SIZE;
-        break;
-      }
+  for (let ty = bottomTileY; ty <= topTileY; ty++) {
+    if (dx > 0 && isSolid(rightTileX, ty)) {
+      collidedX = true;
+      newX = rightTileX * TILE_SIZE - w;
+      break;
+    } else if (dx < 0 && isSolid(leftTileX, ty)) {
+      collidedX = true;
+      newX = (leftTileX + 1) * TILE_SIZE;
+      break;
+    }
+  } // Y-akselin törmäystarkistus
+
+  let leftTileY = Math.floor(newX / TILE_SIZE);
+  let rightTileY = Math.floor((newX + w - EPS) / TILE_SIZE);
+  bottomTileY = Math.floor(newY / TILE_SIZE);
+  topTileY = Math.floor((newY + h - EPS) / TILE_SIZE);
+
+  for (let tx = leftTileY; tx <= rightTileY; tx++) {
+    if (dy > 0 && isSolid(tx, topTileY)) {
+      collidedY = true;
+      newY = topTileY * TILE_SIZE - h;
+      break;
+    } else if (dy < 0 && isSolid(tx, bottomTileY)) {
+      collidedY = true;
+      newY = (bottomTileY + 1) * TILE_SIZE;
+      break;
     }
   }
 
-  return { x, y: newY, collidedX, collidedY };
+  return { x: newX, y: newY, collidedX, collidedY };
 }
 
 // ----- Syöte -----
@@ -104,6 +90,7 @@ document.addEventListener("keydown", (e) => {
   const k = e.code === "Space" ? "Space" : e.key.toLowerCase();
   keys[k] = true;
 });
+
 document.addEventListener("keyup", (e) => {
   const k = e.code === "Space" ? "Space" : e.key.toLowerCase();
   keys[k] = false;
@@ -113,15 +100,14 @@ document.addEventListener("keyup", (e) => {
 let lastTime = 0;
 
 function gameLoop(ts) {
-  if (ts - lastTime >= FRAME_TIME) {
-    update();
-    draw();
-    lastTime = ts;
-  }
+  const deltaTime = (ts - lastTime) / (1000 / NORMAL_FPS);
+  update(deltaTime);
+  draw();
+  lastTime = ts;
   requestAnimationFrame(gameLoop);
 }
 
-function update() {
+function update(deltaTime) {
   let dx = 0;
   if (keys["a"] && !keys["d"]) dx = -player.speed;
   if (keys["d"] && !keys["a"]) dx = player.speed;
@@ -132,21 +118,21 @@ function update() {
   }
 
   player.vy += GRAVITY;
-  if (player.vy < MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
+  if (player.vy < MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED; // Liikenopeuksien skaalaus deltaTime:lla
 
   const res = moveAndCollide(
     player.x,
     player.y,
     player.w,
     player.h,
-    dx,
-    player.vy,
+    dx * deltaTime,
+    player.vy * deltaTime,
   );
 
   player.x = res.x;
-  player.y = res.y;
+  player.y = res.y; // Päivitetään onGround vain, jos törmäys tapahtui alaspäin liikuttaessa
 
-  if (res.collidedY && player.vy < 0) {
+  if (res.collidedY && player.vy <= 0) {
     player.onGround = true;
     player.vy = 0;
   } else if (res.collidedY && player.vy > 0) {
@@ -183,7 +169,7 @@ W.light({ x: 0.5, y: -0.3, z: -0.5 });
 image.onload = function () {
   for (let row = 0; row < MAP_H; row++) {
     const mapRow = map1[row];
-    const worldY = MAP_H - 1 - row; // käännetty y
+    const worldY = MAP_H - 1 - row;
     for (let x = 0; x < MAP_W; x++) {
       const ch = mapRow[x];
       if (ch === "#" || ch === "=") {
