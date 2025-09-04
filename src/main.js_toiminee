@@ -7,11 +7,11 @@ const gl = canvas.getContext("webgl2");
 
 // ----- Perusasetukset -----
 const TILE_SIZE = 1;
-const EPS = 0.001;
-const GRAVITY = -0.015;
+const EPS = 0.001; // pieni epsilon reunojen välttämiseksi
+const GRAVITY = -0.015; // alaspäin (y kasvaa ylöspäin)
 const JUMP_FORCE = 0.25;
-const MAX_FALL_SPEED = -0.25;
-const FRAME_TIME = 1000 / 30;
+const MAX_FALL_SPEED = -0.25; // maksimipudotus
+const FRAME_TIME = 1000 / 30; // 30 FPS ~ 33 ms
 
 const MAP_H = map1.length;
 const MAP_W = map1[0].length;
@@ -20,10 +20,10 @@ const MAP_W = map1[0].length;
 let z = 10;
 let rot = 0;
 
-// Pelaaja
+// ----- Pelaaja: 1x1 tile, koordinaatti = vasen-alakulma -----
 let player = {
-  x: 8,
-  y: 5,
+  x: 8, // vasen
+  y: 20, // ala
   w: 1,
   h: 1,
   speed: 0.06,
@@ -37,15 +37,18 @@ image.src = noppa;
 
 // ----- Apurit: törmäys -----
 
-// Kartta on nyt TOP-DOWN: map1[0] = ylärivi
+// HUOM: kartta on "bottom-up": map1[0] on alin rivi.
+// Siksi maailman tileY 0 vastaa suoraan map1[0].
 function isSolid(tx, ty) {
   if (tx < 0 || tx >= MAP_W) return false;
   if (ty < 0 || ty >= MAP_H) return false;
-  // käännetään y
-  return map1[MAP_H - 1 - ty][tx] === "#";
+  return map1[ty][tx] === "#"; // "#" = seinä/maa
 }
 
+// Akseli kerrallaan, kuten klassisissa tile-collidereissa.
+// x,y = pelaajan vasen-alakulma. w,h = koko. dx,dy = liike askelessa.
 function moveAndCollide(x, y, w, h, dx, dy) {
+  // --- X-akseli ---
   let newX = x + dx;
   let collidedX = false;
 
@@ -58,13 +61,13 @@ function moveAndCollide(x, y, w, h, dx, dy) {
     if (dx > 0) {
       if (isSolid(rightTile, ty)) {
         collidedX = true;
-        newX = rightTile * TILE_SIZE - w;
+        newX = rightTile * TILE_SIZE - w; // pysäytä seinän vasemmalle puolelle
         break;
       }
     } else if (dx < 0) {
       if (isSolid(leftTile, ty)) {
         collidedX = true;
-        newX = (leftTile + 1) * TILE_SIZE;
+        newX = (leftTile + 1) * TILE_SIZE; // pysäytä seinän oikealle puolelle
         break;
       }
     }
@@ -72,6 +75,7 @@ function moveAndCollide(x, y, w, h, dx, dy) {
 
   x = newX;
 
+  // --- Y-akseli ---
   let newY = y + dy;
   let collidedY = false;
 
@@ -82,15 +86,17 @@ function moveAndCollide(x, y, w, h, dx, dy) {
 
   for (let tx = leftTile; tx <= rightTile; tx++) {
     if (dy > 0) {
+      // ylöspäin
       if (isSolid(tx, topTile)) {
         collidedY = true;
-        newY = topTile * TILE_SIZE - h;
+        newY = topTile * TILE_SIZE - h; // pelaajan yläreuna juuri katon alapuolelle
         break;
       }
     } else if (dy < 0) {
+      // alaspäin
       if (isSolid(tx, bottomTile)) {
         collidedY = true;
-        newY = (bottomTile + 1) * TILE_SIZE;
+        newY = (bottomTile + 1) * TILE_SIZE; // pelaajan alareuna juuri lattian yläpuolelle
         break;
       }
     }
@@ -109,7 +115,7 @@ document.addEventListener("keyup", (e) => {
   keys[k] = false;
 });
 
-// ----- Peli-silmukka -----
+// ----- Peli-silmukka 30 FPS -----
 let lastTime = 0;
 
 function gameLoop(ts) {
@@ -126,11 +132,13 @@ function update() {
   if (keys["a"] && !keys["d"]) dx = -player.speed;
   if (keys["d"] && !keys["a"]) dx = player.speed;
 
+  // Hyppy vain maasta
   if ((keys[" "] || keys["Space"]) && player.onGround) {
     player.vy = JUMP_FORCE;
     player.onGround = false;
   }
 
+  // Painovoima + putoamisnopeuden rajoitus
   player.vy += GRAVITY;
   if (player.vy < MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
 
@@ -146,6 +154,7 @@ function update() {
   player.x = res.x;
   player.y = res.y;
 
+  // Maassa / katossa
   if (res.collidedY && player.vy < 0) {
     player.onGround = true;
     player.vy = 0;
@@ -157,6 +166,7 @@ function update() {
 }
 
 function draw() {
+  // Kamera pelaajan keskelle
   W.camera({
     ry: rot,
     x: player.x + player.w / 2,
@@ -164,6 +174,7 @@ function draw() {
     z: z,
   });
 
+  // Piirrä "pelaaja" (näytetään keskitettynä, jotta 1x1 sopii tileen nätisti)
   W.sphere({
     n: "player",
     size: 1,
@@ -181,16 +192,17 @@ W.camera({ ry: rot });
 W.light({ x: 0.5, y: -0.3, z: -0.5 });
 
 image.onload = function () {
-  for (let row = 0; row < MAP_H; row++) {
-    const mapRow = map1[row];
-    const worldY = MAP_H - 1 - row; // käännetty y
+  // Bottom-up: index 0 = alin rivi → y = index
+  for (let y = 0; y < MAP_H; y++) {
+    const row = map1[y];
     for (let x = 0; x < MAP_W; x++) {
-      const ch = mapRow[x];
+      const ch = row[x];
       if (ch === "#" || ch === "=") {
         W.cube({
-          n: `kuutio_${row}_${x}`,
+          n: `kuutio_${y}_${x}`,
+          // W.cube:n x,y ovat objektin keskipiste → siirretään 0.5 jotta tiili osuu ruutuun [x, x+1] × [y, y+1]
           x: x + 0.5,
-          y: worldY + 0.5,
+          y: y + 0.5,
           z: 0,
           w: 1,
           h: 1,
@@ -199,10 +211,10 @@ image.onload = function () {
         });
       } else if (ch === "!") {
         W.sphere({
-          n: `ball_${row}_${x}`,
+          n: `ball_${y}_${x}`,
           size: 1,
           x: x + 0.5,
-          y: worldY + 0.5,
+          y: y + 0.5,
           z: 0,
           t: image,
         });
