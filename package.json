@@ -5,7 +5,9 @@
   "license": "MIT",
   "scripts": {
     "build": "webpack build",
-    "dev": "webpack serve"
+    "dev": "webpack serve",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && webpack build"
   },
   "devDependencies": {
     "html-webpack-plugin": "^5.6.4",
