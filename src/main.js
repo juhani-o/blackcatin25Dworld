@@ -99,14 +99,13 @@ document.addEventListener("keyup", (e) => {
 let lastTime = 0;
 
 function gameLoop(ts) {
-  const deltaTime = (ts - lastTime) / (1000 / NORMAL_FPS);
-  update(deltaTime);
+  update();
   draw();
   lastTime = ts;
   requestAnimationFrame(gameLoop);
 }
 
-function update(deltaTime) {
+function update() {
   let dx = 0;
   if (keys["a"] && !keys["d"]) dx = -player.speed;
   if (keys["d"] && !keys["a"]) dx = player.speed;
@@ -124,8 +123,8 @@ function update(deltaTime) {
     player.y,
     player.w,
     player.h,
-    dx * deltaTime,
-    player.vy * deltaTime,
+    dx,
+    player.vy,
   );
 
   player.x = res.x;
@@ -207,6 +206,7 @@ function init() {
           w: 1,
           h: 1,
           d: 1,
+          ns: 1,
           t: images.arrow,
         });
       }
