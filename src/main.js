@@ -1,41 +1,40 @@
 import "./w.min.full.js";
 import { map1 } from "./maps/maps.js";
-import noppa from "./assets/noppa2.png";
+import dice from "./assets/dice.png";
+import arrow from "./assets/arrow.png";
 
 const canvas = document.getElementById("myCanvas");
 const gl = canvas.getContext("webgl2");
 
-// ----- Perusasetukset -----
+// ----- Basic Settings -----
 const TILE_SIZE = 1;
 const EPS = 0.001;
 const GRAVITY = -0.015;
-const JUMP_FORCE = 0.25;
+const JUMP_FORCE = 0.5;
 const MAX_FALL_SPEED = -0.25;
 const NORMAL_FPS = 60;
 
 const MAP_H = map1.length;
 const MAP_W = map1[0].length;
 
-// Kamera
+// Camera
 let z = 10;
 let rot = 0;
 
-// Pelaaja
+// Player
 let player = {
-  x: 8,
+  x: 6,
   y: 5,
-  w: 1,
-  h: 1,
-  speed: 0.06,
+  w: 2,
+  h: 2,
+  speed: 0.1,
   vy: 0,
   onGround: false,
 };
 
 let keys = {};
-let image = new Image();
-image.src = noppa;
 
-// ----- Apurit: törmäys -----
+// ----- Collision Helpers -----
 function isSolid(tx, ty) {
   if (tx < 0 || tx >= MAP_W) return false;
   if (ty < 0 || ty >= MAP_H) return false;
@@ -46,7 +45,7 @@ function moveAndCollide(x, y, w, h, dx, dy) {
   let newX = x + dx;
   let newY = y + dy;
   let collidedX = false;
-  let collidedY = false; // X-akselin törmäystarkistus
+  let collidedY = false; // X-axis collision check
 
   let leftTileX = Math.floor(newX / TILE_SIZE);
   let rightTileX = Math.floor((newX + w - EPS) / TILE_SIZE);
@@ -63,7 +62,7 @@ function moveAndCollide(x, y, w, h, dx, dy) {
       newX = (leftTileX + 1) * TILE_SIZE;
       break;
     }
-  } // Y-akselin törmäystarkistus
+  } // Y-axis collision check
 
   let leftTileY = Math.floor(newX / TILE_SIZE);
   let rightTileY = Math.floor((newX + w - EPS) / TILE_SIZE);
@@ -85,7 +84,7 @@ function moveAndCollide(x, y, w, h, dx, dy) {
   return { x: newX, y: newY, collidedX, collidedY };
 }
 
-// ----- Syöte -----
+// ----- Input -----
 document.addEventListener("keydown", (e) => {
   const k = e.code === "Space" ? "Space" : e.key.toLowerCase();
   keys[k] = true;
@@ -96,7 +95,7 @@ document.addEventListener("keyup", (e) => {
   keys[k] = false;
 });
 
-// ----- Peli-silmukka -----
+// ----- Game Loop -----
 let lastTime = 0;
 
 function gameLoop(ts) {
@@ -118,7 +117,7 @@ function update(deltaTime) {
   }
 
   player.vy += GRAVITY;
-  if (player.vy < MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED; // Liikenopeuksien skaalaus deltaTime:lla
+  if (player.vy < MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
 
   const res = moveAndCollide(
     player.x,
@@ -130,7 +129,7 @@ function update(deltaTime) {
   );
 
   player.x = res.x;
-  player.y = res.y; // Päivitetään onGround vain, jos törmäys tapahtui alaspäin liikuttaessa
+  player.y = res.y;
 
   if (res.collidedY && player.vy <= 0) {
     player.onGround = true;
@@ -152,49 +151,84 @@ function draw() {
 
   W.sphere({
     n: "player",
-    size: 1,
+    size: 2,
     x: player.x + player.w / 2,
     y: player.y + player.h / 2,
     z: 0,
   });
 }
 
-// ----- Maailma -----
-W.reset(canvas);
-W.ambient(0.7);
-W.clearColor("8Af");
-W.camera({ ry: rot });
-W.light({ x: 0.5, y: -0.3, z: -0.5 });
+// ----- Image Loading and Initialization -----
+const imageFiles = {
+  dice: dice,
+  arrow: arrow,
+};
 
-image.onload = function () {
+const images = {};
+let loadedCount = 0;
+const totalImages = Object.keys(imageFiles).length;
+
+function loadImages() {
+  return new Promise((resolve) => {
+    for (const name in imageFiles) {
+      const img = new Image();
+      img.onload = () => {
+        loadedCount++;
+        if (loadedCount === totalImages) {
+          resolve();
+        }
+      };
+      img.src = imageFiles[name];
+      images[name] = img;
+    }
+  });
+}
+
+function init() {
+  // Initialize the world
+  W.reset(canvas);
+  W.ambient(0.7);
+  W.clearColor("8Af");
+  W.camera({ ry: rot });
+  W.light({ x: 0.5, y: -0.3, z: -0.5 }); // Create world objects based on the map and loaded images
+
   for (let row = 0; row < MAP_H; row++) {
     const mapRow = map1[row];
     const worldY = MAP_H - 1 - row;
     for (let x = 0; x < MAP_W; x++) {
       const ch = mapRow[x];
-      if (ch === "#" || ch === "=") {
+      if (ch === "A") {
+        console.log("Draw arrows", images.arrow);
         W.cube({
-          n: `kuutio_${row}_${x}`,
+          n: `arrow_${row}_${x}`,
           x: x + 0.5,
           y: worldY + 0.5,
           z: 0,
           w: 1,
           h: 1,
           d: 1,
-          t: image,
+          t: images.arrow,
         });
-      } else if (ch === "!") {
-        W.sphere({
-          n: `ball_${row}_${x}`,
-          size: 1,
+      }
+      if (ch === "#") {
+        W.cube({
+          n: `cube_${row}_${x}`,
           x: x + 0.5,
           y: worldY + 0.5,
           z: 0,
-          t: image,
+          w: 1,
+          h: 1,
+          d: 1,
+          t: images.dice,
         });
       }
     }
-  }
-};
+  } // Start the game loop
 
-requestAnimationFrame(gameLoop);
+  requestAnimationFrame(gameLoop);
+}
+
+// Start image loading, then initialize the game
+loadImages().then(() => {
+  init();
+});
