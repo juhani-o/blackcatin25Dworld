@@ -178,6 +178,7 @@ function loadImages() {
         }
       };
       img.src = imageFiles[name];
+      img.id = name;
       images[name] = img;
     }
   });
