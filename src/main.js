@@ -2,6 +2,7 @@ import "./w.min.full.js";
 import { map1, map2 } from "./maps/maps.js";
 import dice from "./assets/dice.png";
 import arrow from "./assets/arrow.png";
+import teleport from "./assets/teleport.png";
 
 const canvas = document.getElementById("myCanvas");
 const gl = canvas.getContext("webgl2");
@@ -148,12 +149,14 @@ function draw() {
     z: z,
   });
 
-  W.sphere({
+  W.plane({
     n: "player",
-    size: 2,
     x: player.x + player.w / 2,
     y: player.y + player.h / 2,
-    z: 0,
+    w: 2,
+    h: 2,
+    z: 0.5,
+    c: '#gg'
   });
 }
 
@@ -161,6 +164,7 @@ function draw() {
 const imageFiles = {
   dice: dice,
   arrow: arrow,
+  teleport: teleport,
 };
 
 const images = {};
@@ -198,7 +202,6 @@ function init() {
     for (let x = 0; x < MAP_W; x++) {
       const ch = mapRow[x];
       if (ch === "A") {
-        console.log("Draw arrows", images.arrow);
         W.cube({
           n: `arrow_${row}_${x}`,
           x: x + 0.5,
@@ -221,6 +224,18 @@ function init() {
           h: 1,
           d: 1,
           t: images.dice,
+        });
+      }
+      if (ch === "^") {
+        W.cube({
+          n: `tele_${row}_${x}`,
+          x: x + 0.5,
+          y: worldY + 0.5,
+          z: 0,
+          w: 1,
+          h: 1,
+          d: 1,
+          t: images.teleport,
         });
       }
     }
