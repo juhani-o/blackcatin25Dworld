@@ -25,7 +25,7 @@ let player = {
   x: 6,
   y: 5,
   w: 2,
-  h: 2,
+  h: 1.5,
   speed: 0.1,
   vy: 0,
   onGround: false,
@@ -154,7 +154,7 @@ function draw() {
     w: 2,
     h: 2,
     z: 0.5,
-    c: '#gg'
+    t: sprites[8]
   });
 }
 
@@ -164,25 +164,20 @@ function parseImagesFromSheet() {
   const img = new Image();
   img.src = spritesheet;
   img.onload = () => {
-    console.log("Spritesheet ladattu");
-
     const kuvanLeveys = 32;
     const kuvanKorkeus = 32;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
-    // Määritellään canvasin koko 32x32 kuvia varten
     canvas.width = kuvanLeveys;
     canvas.height = kuvanKorkeus;
 
-    // Käydään läpi kuva-arkki riveittäin ja sarakkeittain
-    for (let i = 0; i * kuvanKorkeus < img.height; i++) {
       for (let j = 0; j * kuvanLeveys < img.width; j++) {
-        // Leikataan kuva
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(
           img,
           j * kuvanLeveys,
-          i * kuvanKorkeus,
+          0 * kuvanKorkeus,
           kuvanLeveys,
           kuvanKorkeus,
           0,
@@ -191,15 +186,11 @@ function parseImagesFromSheet() {
           kuvanKorkeus
         );
 
-        // Luodaan uusi kuva-objekti leikatulle osalle
         const splittedImage = new Image();
         splittedImage.src = canvas.toDataURL();
         splittedImage.id = "sprite_" + j;
 
-
-        // Tallennetaan kuva taulukkoon
         sprites.push(splittedImage);
-      }
     }
     console.log("Leikatut kuvat tallennettu, yhteensä:", sprites.length);
     init();
@@ -207,8 +198,6 @@ function parseImagesFromSheet() {
 }
 
 function init() {
-  // Initialize the world
-  console.log("INIt ", sprites[3])
   W.reset(canvas);
   W.ambient(0.7);
   W.clearColor("8Af");
