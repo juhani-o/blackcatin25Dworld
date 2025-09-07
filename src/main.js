@@ -1,8 +1,6 @@
 import "./w.min.full.js";
 import { map1, map2 } from "./maps/maps.js";
-import dice from "./assets/dice.png";
-import arrow from "./assets/arrow.png";
-import teleport from "./assets/teleport.png";
+import spritesheet from './assets/spritesheet.png'
 
 const canvas = document.getElementById("myCanvas");
 const gl = canvas.getContext("webgl2");
@@ -160,36 +158,57 @@ function draw() {
   });
 }
 
-// ----- Image Loading and Initialization -----
-const imageFiles = {
-  dice: dice,
-  arrow: arrow,
-  teleport: teleport,
-};
+const sprites = [];
 
-const images = {};
-let loadedCount = 0;
-const totalImages = Object.keys(imageFiles).length;
+function parseImagesFromSheet() {
+  const img = new Image();
+  img.src = spritesheet;
+  img.onload = () => {
+    console.log("Spritesheet ladattu");
 
-function loadImages() {
-  return new Promise((resolve) => {
-    for (const name in imageFiles) {
-      const img = new Image();
-      img.onload = () => {
-        loadedCount++;
-        if (loadedCount === totalImages) {
-          resolve();
-        }
-      };
-      img.src = imageFiles[name];
-      img.id = name;
-      images[name] = img;
+    const kuvanLeveys = 32;
+    const kuvanKorkeus = 32;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Määritellään canvasin koko 32x32 kuvia varten
+    canvas.width = kuvanLeveys;
+    canvas.height = kuvanKorkeus;
+
+    // Käydään läpi kuva-arkki riveittäin ja sarakkeittain
+    for (let i = 0; i * kuvanKorkeus < img.height; i++) {
+      for (let j = 0; j * kuvanLeveys < img.width; j++) {
+        // Leikataan kuva
+        ctx.drawImage(
+          img,
+          j * kuvanLeveys,
+          i * kuvanKorkeus,
+          kuvanLeveys,
+          kuvanKorkeus,
+          0,
+          0,
+          kuvanLeveys,
+          kuvanKorkeus
+        );
+
+        // Luodaan uusi kuva-objekti leikatulle osalle
+        const splittedImage = new Image();
+        splittedImage.src = canvas.toDataURL();
+        splittedImage.id = "sprite_" + j;
+
+
+        // Tallennetaan kuva taulukkoon
+        sprites.push(splittedImage);
+      }
     }
-  });
+    console.log("Leikatut kuvat tallennettu, yhteensä:", sprites.length);
+    init();
+  };
 }
 
 function init() {
   // Initialize the world
+  console.log("INIt ", sprites[3])
   W.reset(canvas);
   W.ambient(0.7);
   W.clearColor("8Af");
@@ -211,7 +230,7 @@ function init() {
           h: 1,
           d: 1,
           ns: 1,
-          t: images.arrow,
+          t: sprites[17],
         });
       }
       if (ch === "#") {
@@ -223,7 +242,7 @@ function init() {
           w: 1,
           h: 1,
           d: 1,
-          t: images.dice,
+          t: sprites[18],
         });
       }
       if (ch === "^") {
@@ -235,7 +254,7 @@ function init() {
           w: 1,
           h: 1,
           d: 1,
-          t: images.teleport,
+          t: sprites[19],
         });
       }
     }
@@ -243,8 +262,4 @@ function init() {
 
   requestAnimationFrame(gameLoop);
 }
-
-// Start image loading, then initialize the game
-loadImages().then(() => {
-  init();
-});
+parseImagesFromSheet();
