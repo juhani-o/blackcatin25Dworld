@@ -1,5 +1,5 @@
 import "./w.min.full.js";
-import { map1 } from "./maps/maps.js";
+import { map1, map2 } from "./maps/maps.js";
 import dice from "./assets/dice.png";
 import arrow from "./assets/arrow.png";
 
