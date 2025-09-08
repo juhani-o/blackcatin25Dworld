@@ -36,9 +36,10 @@ const IDLE_FRAME = 8;
 const WALK_FRAMES_START = 9;
 const WALK_FRAMES_END = 11;
 
-const JUMP_UP_FRAMES = [0, 1];
+// Simplified Jump frames
+const JUMP_UP_FRAME = 1;
 const JUMP_PEAK_FRAME = 2;
-const JUMP_DOWN_FRAMES = [3, 4];
+const JUMP_DOWN_FRAME = 3;
 
 let currentFrame = IDLE_FRAME;
 let animationSpeed = 3;
@@ -186,22 +187,14 @@ function update() {
   // Animation logic
   if (!player.onGround) {
     if (player.vy > 0.1) {
-      // Jumping up: use first two frames (0, 1)
-      if (currentFrame !== JUMP_UP_FRAMES[0] && currentFrame !== JUMP_UP_FRAMES[1]) {
-        currentFrame = JUMP_UP_FRAMES[0];
-      } else if (currentFrame === JUMP_UP_FRAMES[0] && player.vy < JUMP_FORCE * 0.5) {
-        currentFrame = JUMP_UP_FRAMES[1];
-      }
+      // Jumping up
+      currentFrame = JUMP_UP_FRAME;
     } else if (player.vy <= 0.1 && player.vy >= -0.1) {
-      // Jump peak: use single frame (2)
+      // Jump peak
       currentFrame = JUMP_PEAK_FRAME;
     } else {
-      // Falling down: use last two frames (3, 4)
-      if (currentFrame !== JUMP_DOWN_FRAMES[0] && currentFrame !== JUMP_DOWN_FRAMES[1]) {
-        currentFrame = JUMP_DOWN_FRAMES[0];
-      } else if (currentFrame === JUMP_DOWN_FRAMES[0] && player.vy < -0.1) {
-        currentFrame = JUMP_DOWN_FRAMES[1];
-      }
+      // Falling down
+      currentFrame = JUMP_DOWN_FRAME;
     }
   } else {
     // On the ground
@@ -360,3 +353,4 @@ function init() {
 }
 
 parseImagesFromSheet();
+
