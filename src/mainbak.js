@@ -122,15 +122,15 @@ function gameLoop(ts) {
 }
 
 function checkTileBelowPlayer(tileType) {
-  const playerBottomY = Math.floor(player.y - 0.1);
-  const playerCenterX = player.x + player.w / 2;
-  const playerBottomTileX = Math.floor(playerCenterX);
-  const mapY = MAP_H - 1 - playerBottomY;
-  
-  if (playerBottomTileX >= 0 && playerBottomTileX < MAP_W && mapY >= 0 && mapY < MAP_H) {
-    return map1[mapY][playerBottomTileX] === tileType;
-  }
-  return false;
+  const playerBottomY = Math.floor(player.y - 0.1);
+  const playerCenterX = player.x + player.w / 2;
+  const playerBottomTileX = Math.floor(playerCenterX);
+  const mapY = MAP_H - 1 - playerBottomY;
+  
+  if (playerBottomTileX >= 0 && playerBottomTileX < MAP_W && mapY >= 0 && mapY < MAP_H) {
+    return map1[mapY][playerBottomTileX] === tileType;
+  }
+  return false;
 }
 
 function update() {
@@ -147,9 +147,9 @@ function update() {
     isMoving = true;
     direction = 1;
   }
-  
+  
   if (checkTileBelowPlayer('A')) {
-  // Let's add some extra for jump force when entering jump platform
+  // Let's add some extra for jump force when entering jump platform
     if (player.onGround) {
       player.vy = JUMP_FORCE + 0.15;
       player.onGround = false;
@@ -160,7 +160,7 @@ function update() {
     player.vy = JUMP_FORCE;
     player.onGround = false;
   }
- 
+ 
   player.vy += GRAVITY;
   if (player.vy < MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
 
@@ -187,16 +187,16 @@ function update() {
 
   // Animation logic
   if (!player.onGround) {
-    if (player.vy > 0.1) {
-      // Jumping up
-      currentFrame = JUMP_UP_FRAME;
-    } else if (player.vy <= 0.1 && player.vy >= -0.1) {
-      // Jump peak
-      currentFrame = JUMP_PEAK_FRAME;
-    } else {
-      // Falling down
-      currentFrame = JUMP_DOWN_FRAME;
-    }
+    if (player.vy > 0.1) {
+      // Jumping up
+      currentFrame = JUMP_UP_FRAME;
+    } else if (player.vy <= 0.1 && player.vy >= -0.1) {
+      // Jump peak
+      currentFrame = JUMP_PEAK_FRAME;
+    } else {
+      // Falling down
+      currentFrame = JUMP_DOWN_FRAME;
+    }
   } else {
     // On the ground
     if (isMoving) {
@@ -298,44 +298,49 @@ function parseImagesFromSheet() {
   };
 }
 
-function renderMap(map, zValue) {
-  const mapHeight = map.length;
-  const mapWidth = map[0].length;
-  for (let row = 0; row < mapHeight; row++) {
-    const mapRow = map[row];
-    const worldY = mapHeight - 1 - row;
-    for (let x = 0; x < mapWidth; x++) {
+function init() {
+  W.reset(canvas);
+  W.ambient(0.7);
+  W.clearColor("8Af");
+  W.camera({ ry: rot });
+  W.light({ x: 0.5, y: -0.3, z: -0.5 });
+
+  for (let row = 0; row < MAP_H; row++) {
+    const mapRow = map1[row];
+    const worldY = MAP_H - 1 - row;
+    for (let x = 0; x < MAP_W; x++) {
       const ch = mapRow[x];
-      if (ch === "#") {
+      if (ch === "A") {
         W.cube({
-          n: `cube_${row}_${x}_${zValue}`,
+          n: `arrow_${row}_${x}`,
           x: x + 0.5,
           y: worldY + 0.5,
-          z: zValue,
+          z: 0,
+          w: 1,
+          h: 1,
+          d: 1,
+          ns: 1,
+          t: sprites[17],
+        });
+      }
+      if (ch === "#") {
+        W.cube({
+          n: `cube_${row}_${x}`,
+          x: x + 0.5,
+          y: worldY + 0.5,
+          z: 0,
           w: 1,
           h: 1,
           d: 1,
           t: sprites[18],
         });
       }
-      if (ch === "A") {
-        W.cube({
-          n: `arrow_${row}_${x}_${zValue}`,
-          x: x + 0.5,
-          y: worldY + 0.5,
-          z: zValue,
-          w: 1,
-          h: 1,
-          d: 1,
-          t: sprites[17],
-        });
-      }
       if (ch === "^") {
         W.cube({
-          n: `tele_${row}_${x}_${zValue}`,
+          n: `tele_${row}_${x}`,
           x: x + 0.5,
           y: worldY + 0.5,
-          z: zValue,
+          z: 0,
           w: 1,
           h: 1,
           d: 1,
@@ -344,22 +349,6 @@ function renderMap(map, zValue) {
       }
     }
   }
-}
-
-
-function init() {
-  W.reset(canvas);
-  W.ambient(0.7);
-  W.clearColor("8Af");
-  W.camera({ ry: rot });
-  W.light({ x: 0.5, y: -0.3, z: -0.5 });
- 
-  // Render map2 in the background
-  renderMap(map2, -5);
-
-  // Render map1 (the foreground and collision map)
-  renderMap(map1, 0);
-
   requestAnimationFrame(gameLoop);
 }
 
