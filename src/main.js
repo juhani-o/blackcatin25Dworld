@@ -35,8 +35,10 @@ let player = {
 const IDLE_FRAME = 8;
 const WALK_FRAMES_START = 9;
 const WALK_FRAMES_END = 11;
-const JUMP_FRAMES_START = 0;
-const JUMP_FRAMES_END = 4;
+
+const JUMP_UP_FRAMES = [0, 1];
+const JUMP_PEAK_FRAME = 2;
+const JUMP_DOWN_FRAMES = [3, 4];
 
 let currentFrame = IDLE_FRAME;
 let animationSpeed = 3;
@@ -118,6 +120,18 @@ function gameLoop(ts) {
   requestAnimationFrame(gameLoop);
 }
 
+function checkTileBelowPlayer(tileType) {
+  const playerBottomY = Math.floor(player.y - 0.1);
+  const playerCenterX = player.x + player.w / 2;
+  const playerBottomTileX = Math.floor(playerCenterX);
+  const mapY = MAP_H - 1 - playerBottomY;
+  
+  if (playerBottomTileX >= 0 && playerBottomTileX < MAP_W && mapY >= 0 && mapY < MAP_H) {
+    return map1[mapY][playerBottomTileX] === tileType;
+  }
+  return false;
+}
+
 function update() {
   let dx = 0;
   let isMoving = false;
@@ -132,12 +146,19 @@ function update() {
     isMoving = true;
     direction = 1;
   }
+  
+  if (checkTileBelowPlayer('A')) {
+    if (player.onGround) {
+      player.vy = JUMP_FORCE;
+      player.onGround = false;
+    }
+  }
 
   if ((keys[" "] || keys["Space"]) && player.onGround) {
     player.vy = JUMP_FORCE;
     player.onGround = false;
   }
-
+ 
   player.vy += GRAVITY;
   if (player.vy < MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
 
@@ -164,20 +185,36 @@ function update() {
 
   // Animation logic
   if (!player.onGround) {
-    frameTimer++;
-    if (frameTimer >= animationSpeed) {
-      if (player.vy > 0) {
-        if (currentFrame < JUMP_FRAMES_START || currentFrame >= JUMP_FRAMES_END) {
-          currentFrame = JUMP_FRAMES_START;
-        } else {
-          currentFrame++;
-        }
-      } else {
-        currentFrame = JUMP_FRAMES_END;
-      }
-      frameTimer = 0;
-    }
+    // Determine jump phase based on vertical velocity
+    if (player.vy > 0.1) {
+      // Jumping up: use first two frames (0, 1)
+      if (currentFrame !== JUMP_UP_FRAMES[0] && currentFrame !== JUMP_UP_FRAMES[1]) {
+        currentFrame = JUMP_UP_FRAMES[0];
+      }
+    } else if (player.vy <= 0.1 && player.vy >= -0.1) {
+      // Jump peak: use single frame (2)
+      currentFrame = JUMP_PEAK_FRAME;
+    } else {
+      // Falling down: use last two frames (3, 4)
+      if (currentFrame !== JUMP_DOWN_FRAMES[0] && currentFrame !== JUMP_DOWN_FRAMES[1]) {
+        currentFrame = JUMP_DOWN_FRAMES[0];
+      }
+    }
+    
+    // Animate jump frames only when they're not the peak frame
+    if (currentFrame !== JUMP_PEAK_FRAME) {
+      frameTimer++;
+      if (frameTimer >= animationSpeed) {
+        if (player.vy > 0.1) {
+          currentFrame = (currentFrame === JUMP_UP_FRAMES[0]) ? JUMP_UP_FRAMES[1] : JUMP_UP_FRAMES[0];
+        } else {
+          currentFrame = (currentFrame === JUMP_DOWN_FRAMES[0]) ? JUMP_DOWN_FRAMES[1] : JUMP_DOWN_FRAMES[0];
+        }
+        frameTimer = 0;
+      }
+    }
   } else {
+    // On the ground
     if (isMoving) {
       frameTimer++;
       if (frameTimer >= animationSpeed) {
@@ -194,8 +231,8 @@ function update() {
 }
 
 function draw() {
-  let frameWithDirection = (direction === -1 ? 20 : 0) + currentFrame;
-  console.log("Sprite ", frameWithDirection)
+  let frameWithDirection = (direction === -1 ? 20 : 0) + currentFrame;
+  console.log("Sprite ", frameWithDirection)
   W.camera({
     ry: rot,
     x: player.x + player.w / 2,
@@ -210,7 +247,7 @@ function draw() {
     w: 2,
     h: 2,
     z: 0.5,
-    t: sprites[frameWithDirection], //(direction === -1 ? 20 : 0)],
+    t: sprites[frameWithDirection],
   });
 }
 
@@ -248,25 +285,25 @@ function parseImagesFromSheet() {
 
       sprites.push(splittedImage);
     }
-      for (let j = 0; j * kuvanLeveys < img.width; j++) {
-      
-      // Pystysuunnassa flipattu sprite (ylösalaisin)
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.save();
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.scale(-1, 1);
-      ctx.drawImage(
-        img,
-        j * kuvanLeveys,
-        0 * kuvanKorkeus,
-        kuvanLeveys,
-        kuvanKorkeus,
-        -kuvanLeveys / 2,
-        -kuvanKorkeus / 2,
-        kuvanLeveys,
-        kuvanKorkeus
-      );
-      ctx.restore();
+      for (let j = 0; j * kuvanLeveys < img.width; j++) {
+      
+      // Pystysuunnassa flipattu sprite (ylösalaisin)
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.scale(-1, 1);
+      ctx.drawImage(
+        img,
+        j * kuvanLeveys,
+        0 * kuvanKorkeus,
+        kuvanLeveys,
+        kuvanKorkeus,
+        -kuvanLeveys / 2,
+        -kuvanKorkeus / 2,
+        kuvanLeveys,
+        kuvanKorkeus
+      );
+      ctx.restore();
       const splittedImage = new Image();
       splittedImage.src = canvas.toDataURL();
       splittedImage.id = "sprite_" + j + 20;
