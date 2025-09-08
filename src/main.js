@@ -51,7 +51,7 @@ let keys = {};
 function isSolid(tx, ty) {
   if (tx < 0 || tx >= MAP_W) return false;
   if (ty < 0 || ty >= MAP_H) return false;
-  return map1[MAP_H - 1 - ty][tx] === "#";
+  return map1[MAP_H - 1 - ty][tx] !== ".";
 }
 
 function moveAndCollide(x, y, w, h, dx, dy) {
@@ -185,11 +185,12 @@ function update() {
 
   // Animation logic
   if (!player.onGround) {
-    // Determine jump phase based on vertical velocity
     if (player.vy > 0.1) {
       // Jumping up: use first two frames (0, 1)
       if (currentFrame !== JUMP_UP_FRAMES[0] && currentFrame !== JUMP_UP_FRAMES[1]) {
         currentFrame = JUMP_UP_FRAMES[0];
+      } else if (currentFrame === JUMP_UP_FRAMES[0] && player.vy < JUMP_FORCE * 0.5) {
+        currentFrame = JUMP_UP_FRAMES[1];
       }
     } else if (player.vy <= 0.1 && player.vy >= -0.1) {
       // Jump peak: use single frame (2)
@@ -198,19 +199,8 @@ function update() {
       // Falling down: use last two frames (3, 4)
       if (currentFrame !== JUMP_DOWN_FRAMES[0] && currentFrame !== JUMP_DOWN_FRAMES[1]) {
         currentFrame = JUMP_DOWN_FRAMES[0];
-      }
-    }
-    
-    // Animate jump frames only when they're not the peak frame
-    if (currentFrame !== JUMP_PEAK_FRAME) {
-      frameTimer++;
-      if (frameTimer >= animationSpeed) {
-        if (player.vy > 0.1) {
-          currentFrame = (currentFrame === JUMP_UP_FRAMES[0]) ? JUMP_UP_FRAMES[1] : JUMP_UP_FRAMES[0];
-        } else {
-          currentFrame = (currentFrame === JUMP_DOWN_FRAMES[0]) ? JUMP_DOWN_FRAMES[1] : JUMP_DOWN_FRAMES[0];
-        }
-        frameTimer = 0;
+      } else if (currentFrame === JUMP_DOWN_FRAMES[0] && player.vy < -0.1) {
+        currentFrame = JUMP_DOWN_FRAMES[1];
       }
     }
   } else {
