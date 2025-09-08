@@ -9,7 +9,7 @@ const gl = canvas.getContext("webgl2");
 const TILE_SIZE = 1;
 const EPS = 0.001;
 const GRAVITY = -0.015;
-const JUMP_FORCE = 0.5;
+const JUMP_FORCE = 0.35;
 const MAX_FALL_SPEED = -0.25;
 const NORMAL_FPS = 60;
 
@@ -149,8 +149,9 @@ function update() {
   }
   
   if (checkTileBelowPlayer('A')) {
+  // Let's add some extra for jump force when entering jump platform
     if (player.onGround) {
-      player.vy = JUMP_FORCE;
+      player.vy = JUMP_FORCE + 0.15;
       player.onGround = false;
     }
   }
@@ -215,7 +216,6 @@ function update() {
 
 function draw() {
   let frameWithDirection = (direction === -1 ? 20 : 0) + currentFrame;
-  console.log("Sprite ", frameWithDirection)
   W.camera({
     ry: rot,
     x: player.x + player.w / 2,
