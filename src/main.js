@@ -1,5 +1,5 @@
 import "./w.min.full.js";
-import { map1, map2 } from "./maps/maps.js";
+import { map1, map2, map3 } from "./maps/maps.js";
 import spritesheet from "./assets/spritesheet.png";
 
 const canvas = document.getElementById("myCanvas");
@@ -265,12 +265,12 @@ function parseImagesFromSheet() {
     const allSpritesLoaded = () => {
       loadedSprites++;
       if (loadedSprites === totalSprites) {
-        console.log("Kaikki spritet ladattu, käynnistetään init()!");
+        console.log("All sprites loaded");
         init();
       }
     };
 
-    // Alkuperäiset spritet
+    // Sprites from original direction
     for (let i = 0; i < numSprites; i++) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(
@@ -292,7 +292,7 @@ function parseImagesFromSheet() {
       sprites.push(splitImage);
     }
 
-    // Peilatut (flippatut) spritet
+    // Reversed sprites
     for (let i = 0; i < numSprites; i++) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
@@ -322,7 +322,6 @@ function parseImagesFromSheet() {
 
 function renderMap(map, zValue) {
   W.group("map");
-  console.log("Sprites ", sprites);
   for (let row = 0; row < mapHeight; row++) {
     const mapRow = map[row];
     const worldY = mapHeight - 1 - row;
@@ -372,15 +371,15 @@ function renderMap(map, zValue) {
 }
 
 function init() {
-  initMap(map2);
+  initMap(map1);
   W.reset(canvas);
   W.ambient(0.7);
   W.clearColor("8Af");
   W.camera({ ry: rot });
   // W.light({ x: 0.5, y: -0.3, z: -0.5 }); // Render map2 in the background
-  renderMap(map2, -5);
-
-  renderMap(map1, 0);
+  renderMap(map3, -3);
+  renderMap(map2, -1);
+  renderMap(map1, 1);
 
   requestAnimationFrame(gameLoop);
 }
