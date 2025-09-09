@@ -240,71 +240,153 @@ function draw() {
   });
 }
 
-const sprites = [];
+let sprites = []; // Varmista, että tämä taulukko on olemassa globaalisti
 
 function parseImagesFromSheet() {
   const img = new Image();
   img.src = spritesheet;
-  img.onload = (e) => {
-    console.log("E=", e);
-    const kuvanLeveys = 32;
-    const kuvanKorkeus = 32;
+
+  img.onload = () => {
+    const spriteWidth = 32;
+    const spriteHeight = 32;
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
 
-    canvas.width = kuvanLeveys;
-    canvas.height = kuvanKorkeus;
+    canvas.width = spriteWidth;
+    canvas.height = spriteHeight;
 
-    for (let j = 0; j * kuvanLeveys < img.width; j++) {
+    let totalSprites = 0;
+    let loadedSprites = 0;
+
+    // Alustetaan taulukko oikean kokoisena
+    const numSprites = img.width / spriteWidth;
+    totalSprites = numSprites * 2; // Oikea ja peilattu versio
+
+    const allSpritesLoaded = () => {
+      loadedSprites++;
+      if (loadedSprites === totalSprites) {
+        console.log("Kaikki spritet ladattu, käynnistetään init()!");
+        init();
+      }
+    };
+
+    // Alkuperäiset spritet
+    for (let i = 0; i < numSprites; i++) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(
         img,
-        j * kuvanLeveys,
-        0 * kuvanKorkeus,
-        kuvanLeveys,
-        kuvanKorkeus,
+        i * spriteWidth,
+        0,
+        spriteWidth,
+        spriteHeight,
         0,
         0,
-        kuvanLeveys,
-        kuvanKorkeus,
+        spriteWidth,
+        spriteHeight,
       );
 
-      const splittedImage = new Image();
-      splittedImage.src = canvas.toDataURL();
-      splittedImage.id = "sprite_" + j;
-
-      sprites.push(splittedImage);
+      const splitImage = new Image();
+      splitImage.src = canvas.toDataURL();
+      splitImage.id = `sprite_${i}`;
+      splitImage.onload = allSpritesLoaded;
+      sprites.push(splitImage);
     }
-    for (let j = 0; j * kuvanLeveys < img.width; j++) {
-      // Pystysuunnassa flipattu sprite (ylösalaisin)
+
+    // Peilatut (flippatut) spritet
+    for (let i = 0; i < numSprites; i++) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.scale(-1, 1);
       ctx.drawImage(
         img,
-        j * kuvanLeveys,
-        0 * kuvanKorkeus,
-        kuvanLeveys,
-        kuvanKorkeus,
-        -kuvanLeveys / 2,
-        -kuvanKorkeus / 2,
-        kuvanLeveys,
-        kuvanKorkeus,
+        i * spriteWidth,
+        0,
+        spriteWidth,
+        spriteHeight,
+        -spriteWidth / 2,
+        -spriteHeight / 2,
+        spriteWidth,
+        spriteHeight,
       );
       ctx.restore();
-      const splittedImage = new Image();
-      splittedImage.src = canvas.toDataURL();
-      splittedImage.id = "sprite_" + j + 20;
 
-      sprites.push(splittedImage);
+      const splitImage = new Image();
+      splitImage.src = canvas.toDataURL();
+      splitImage.id = `sprite_${i + numSprites}`;
+      splitImage.onload = allSpritesLoaded;
+      sprites.push(splitImage);
     }
-    init();
   };
 }
 
+//function parseImagesFromSheet() {
+//  const img = new Image();
+//  img.src = spritesheet;
+//  img.onload = (e) => {
+//    console.log("E=", e);
+//    const kuvanLeveys = 32;
+//    const kuvanKorkeus = 32;
+//    const canvas = document.createElement("canvas");
+//    const ctx = canvas.getContext("2d");
+//
+//    canvas.width = kuvanLeveys;
+//    canvas.height = kuvanKorkeus;
+//
+//    for (let j = 0; j * kuvanLeveys < img.width; j++) {
+//      ctx.clearRect(0, 0, canvas.width, canvas.height);
+//      ctx.drawImage(
+//        img,
+//        j * kuvanLeveys,
+//        0 * kuvanKorkeus,
+//        kuvanLeveys,
+//        kuvanKorkeus,
+//        0,
+//        0,
+//        kuvanLeveys,
+//        kuvanKorkeus,
+//      );
+//
+//      const splittedImage = new Image();
+//      splittedImage.src = canvas.toDataURL();
+//      splittedImage.id = "sprite_" + j;
+//
+//      splittedImage.onload = () => {
+//        sprites.push(splittedImage);
+//      };
+//    }
+//    for (let j = 0; j * kuvanLeveys < img.width; j++) {
+//      // Pystysuunnassa flipattu sprite (ylösalaisin)
+//      ctx.clearRect(0, 0, canvas.width, canvas.height);
+//      ctx.save();
+//      ctx.translate(canvas.width / 2, canvas.height / 2);
+//      ctx.scale(-1, 1);
+//      ctx.drawImage(
+//        img,
+//        j * kuvanLeveys,
+//        0 * kuvanKorkeus,
+//        kuvanLeveys,
+//        kuvanKorkeus,
+//        -kuvanLeveys / 2,
+//        -kuvanKorkeus / 2,
+//        kuvanLeveys,
+//        kuvanKorkeus,
+//      );
+//      ctx.restore();
+//      const splittedImage = new Image();
+//      splittedImage.src = canvas.toDataURL();
+//      splittedImage.id = "sprite_" + j + 20;
+//      splittedImage.onload = () => {
+//        sprites.push(splittedImage);
+//      };
+//    }
+//    init();
+//  };
+//}
+//
 function renderMap(map, zValue) {
   W.group("map");
+  console.log("Sprites ", sprites);
   for (let row = 0; row < mapHeight; row++) {
     const mapRow = map[row];
     const worldY = mapHeight - 1 - row;
