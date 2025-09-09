@@ -1,28 +1,33 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title><%= htmlWebpackPlugin.options.title %></title>
     <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-            font-family: 'Inter', sans-serif;
-        }
-        canvas {
-            border: 2px solid #333;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        font-family: "Inter", sans-serif;
+        background: black;
+      }
+      canvas {
+        position: absolute;
+        z-index: 1;
+      }
+      #background {
+        width: 1024px;
+        height: 768px;
+        background: #101040;
+        z-index: -1;
+      }
     </style>
-</head>
-<body>
-    <!-- The canvas element that will be included in the output HTML file -->
-    <canvas id="myCanvas" width="800" height="600"></canvas>
-</body>
+  </head>
+  <body>
+    <div id="background"></div>
+    <canvas id="myCanvas" width="1024" height="768"></canvas>
+  </body>
 </html>

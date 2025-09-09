@@ -1,9 +1,12 @@
 import "./w.min.full.js";
-import { map1, map2, map3 } from "./maps/maps.js";
+import { map1, map2 } from "./maps/maps.js";
 import spritesheet from "./assets/spritesheet.png";
 
 const canvas = document.getElementById("myCanvas");
-const gl = canvas.getContext("webgl2");
+const gl = canvas.getContext("webgl2", {
+  alpha: true,
+  premultipliedAlpha: false,
+});
 
 // ----- Basic Settings -----
 const TILE_SIZE = 1;
@@ -164,6 +167,18 @@ function update() {
     }
   }
 
+  let isUserOnTeleport = false;
+
+  if (checkTileBelowPlayer("^")) {
+    if (player.onGround) {
+      if (currentMap === map1) {
+        currentMap = map2;
+      } else if (currentMap === map2) {
+        currentMap = map1;
+      }
+    }
+  }
+
   if ((keys[" "] || keys["Space"]) && player.onGround) {
     player.vy = JUMP_FORCE;
     player.onGround = false;
@@ -223,12 +238,11 @@ function update() {
 function draw() {
   let frameWithDirection = (direction === -1 ? 20 : 0) + currentFrame;
   W.camera({
-    ry: rot,
+    rx: 10,
     x: player.x + player.w / 2,
     y: player.y + player.h / 2,
     z: z,
   });
-
   W.plane({
     n: "player",
     x: player.x + player.w / 2,
@@ -321,7 +335,6 @@ function parseImagesFromSheet() {
 }
 
 function renderMap(map, zValue) {
-  W.group("map");
   for (let row = 0; row < mapHeight; row++) {
     const mapRow = map[row];
     const worldY = mapHeight - 1 - row;
@@ -329,8 +342,7 @@ function renderMap(map, zValue) {
       const ch = mapRow[x];
       if (ch === "#") {
         W.cube({
-          g: "map",
-          //n: `cube_${row}_${x}_${zValue}`,
+          n: `cube_${row}_${x}_${zValue}`,
           x: x + 0.5,
           y: worldY + 0.5,
           z: zValue,
@@ -342,8 +354,7 @@ function renderMap(map, zValue) {
       }
       if (ch === "A") {
         W.cube({
-          g: "map",
-          //n: `arrow_${row}_${x}_${zValue}`,
+          n: `arrow_${row}_${x}_${zValue}`,
           x: x + 0.5,
           y: worldY + 0.5,
           z: zValue,
@@ -351,12 +362,13 @@ function renderMap(map, zValue) {
           h: 1,
           d: 1,
           t: sprites[17],
+          b: "#000000a0",
+          mix: 0.5,
         });
       }
       if (ch === "^") {
         W.cube({
-          g: "map",
-          //n: `tele_${row}_${x}_${zValue}`,
+          n: `tele_${row}_${x}_${zValue}`,
           x: x + 0.5,
           y: worldY + 0.5,
           z: zValue,
@@ -374,12 +386,9 @@ function init() {
   initMap(map1);
   W.reset(canvas);
   W.ambient(0.7);
-  W.clearColor("8Af");
-  W.camera({ ry: rot });
-  // W.light({ x: 0.5, y: -0.3, z: -0.5 }); // Render map2 in the background
-  renderMap(map3, -3);
-  renderMap(map2, -1);
-  renderMap(map1, 1);
+  W.clearColor("#00000000");
+  renderMap(map2, -2);
+  renderMap(map1, 0);
 
   requestAnimationFrame(gameLoop);
 }
