@@ -280,7 +280,7 @@ function parseImagesFromSheet() {
       loadedSprites++;
       if (loadedSprites === totalSprites) {
         console.log("All sprites loaded");
-        init();
+        showStartMenu();
       }
     };
 
@@ -380,6 +380,43 @@ function renderMap(map, zValue) {
       }
     }
   }
+}
+
+function showStartMenu() {
+  const overlay = document.createElement("div");
+  overlay.id = "startOverlay";
+  Object.assign(overlay.style, {
+    position: "absolute",
+    inset: "0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "rgba(0,0,0,0.6)",
+    color: "#ffffff",
+    fontFamily: "monospace, sans-serif",
+    fontSize: "20px",
+    textAlign: "center",
+    cursor: "pointer",
+    zIndex: "9999",
+  });
+  overlay.textContent = "Black Cat in 2.5D world, click to start";
+
+  const parent = canvas.parentElement || document.body;
+  if (parent === document.body) {
+    document.body.style.position = document.body.style.position || "relative";
+  } else if (!parent.style.position) {
+    parent.style.position = "relative";
+  }
+  parent.appendChild(overlay);
+
+  overlay.addEventListener(
+    "click",
+    () => {
+      overlay.remove();
+      init();
+    },
+    { once: true },
+  );
 }
 
 function init() {
