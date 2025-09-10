@@ -3,10 +3,7 @@ import { map1, map2 } from "./maps/maps.js";
 import spritesheet from "./assets/spritesheet.png";
 
 const canvas = document.getElementById("myCanvas");
-const gl = canvas.getContext("webgl2", {
-  alpha: true,
-  premultipliedAlpha: false,
-});
+const gl = canvas.getContext("webgl2");
 
 // ----- Basic Settings -----
 const TILE_SIZE = 1;
@@ -28,6 +25,7 @@ let rot = 0;
 let player = {
   x: 6,
   y: 5,
+  z: 0.5,
   w: 2,
   h: 1.5,
   speed: 0.1,
@@ -121,11 +119,12 @@ document.addEventListener("keyup", (e) => {
 
 // ----- Game Loop -----
 let lastTime = 0;
+const TARGET_FPS = 60;
+const FRAME_TIME = 1000 / TARGET_FPS; // 16.67ms per frame
 
-function gameLoop(ts) {
+function gameLoop() {
   update();
   draw();
-  lastTime = ts;
   requestAnimationFrame(gameLoop);
 }
 
@@ -167,17 +166,7 @@ function update() {
     }
   }
 
-  let isUserOnTeleport = false;
-
-  if (checkTileBelowPlayer("^")) {
-    if (player.onGround) {
-      if (currentMap === map1) {
-        currentMap = map2;
-      } else if (currentMap === map2) {
-        currentMap = map1;
-      }
-    }
-  }
+  // Teleporting removed for better performance
 
   if ((keys[" "] || keys["Space"]) && player.onGround) {
     player.vy = JUMP_FORCE;
@@ -241,7 +230,7 @@ function draw() {
     rx: 10,
     x: player.x + player.w / 2,
     y: player.y + player.h / 2,
-    z: z,
+    z: z + player.z ,
   });
   W.plane({
     n: "player",
@@ -249,7 +238,7 @@ function draw() {
     y: player.y + player.h / 2,
     w: 2,
     h: 2,
-    z: 0.5,
+    z: player.z,
     t: sprites[frameWithDirection],
   });
 }
@@ -334,7 +323,8 @@ function parseImagesFromSheet() {
   };
 }
 
-function renderMap(map, zValue) {
+function renderMap(map, zValue, mapName) {
+  W.group({n: mapName});
   for (let row = 0; row < mapHeight; row++) {
     const mapRow = map[row];
     const worldY = mapHeight - 1 - row;
@@ -342,7 +332,8 @@ function renderMap(map, zValue) {
       const ch = mapRow[x];
       if (ch === "#") {
         W.cube({
-          n: `cube_${row}_${x}_${zValue}`,
+          g: mapName,
+          n: `ground_${mapName}_${row}_${x}`,
           x: x + 0.5,
           y: worldY + 0.5,
           z: zValue,
@@ -354,7 +345,8 @@ function renderMap(map, zValue) {
       }
       if (ch === "A") {
         W.cube({
-          n: `arrow_${row}_${x}_${zValue}`,
+          g: mapName,
+          n: `jump_${mapName}_${row}_${x}`,
           x: x + 0.5,
           y: worldY + 0.5,
           z: zValue,
@@ -362,22 +354,9 @@ function renderMap(map, zValue) {
           h: 1,
           d: 1,
           t: sprites[17],
-          b: "#000000a0",
-          mix: 0.5,
         });
       }
-      if (ch === "^") {
-        W.cube({
-          n: `tele_${row}_${x}_${zValue}`,
-          x: x + 0.5,
-          y: worldY + 0.5,
-          z: zValue,
-          w: 1,
-          h: 1,
-          d: 1,
-          t: sprites[19],
-        });
-      }
+      // Teleport tiles (^) removed for performance
     }
   }
 }
@@ -424,9 +403,9 @@ function init() {
   W.reset(canvas);
   W.ambient(0.7);
   W.clearColor("#00000000");
-  renderMap(map2, -2);
-  renderMap(map1, 0);
-
+  
+  // Only render map1 for better performance
+  renderMap(map1, 0, "map1");
   requestAnimationFrame(gameLoop);
 }
 
