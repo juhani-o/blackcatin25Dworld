@@ -1,98 +1,130 @@
 W = {
-  render: (scene, gl, aspectratio, vs, fs, program, i, vertices, uv, modelMatrix, texture, a) => {
+  _state: null,
+  _getState(gl){
+    if (this._state) return this._state;
 
-
-    // Vertex shader
-    gl.shaderSource(vs = gl.createShader(35633), `#version 300 es\nprecision lowp float;in vec4 c,p,u;uniform mat4 M,m;out vec4 C,P,U;void main(){gl_Position=M*p;P=m*p;C=c;U=u;}`);
+    // Create program once
+    const vs = gl.createShader(35633);
+    gl.shaderSource(vs, `#version 300 es\nprecision lowp float;in vec4 c,p,u;uniform mat4 M,m;out vec4 C,P,U;void main(){gl_Position=M*p;P=m*p;C=c;U=u;}`);
     gl.compileShader(vs);
-    //console.log('vertex shader:', gl.getShaderInfoLog(vs) || 'OK');
 
-    // Fragment shader
-    gl.shaderSource(fs = gl.createShader(35632), `#version 300 es\nprecision lowp float;uniform vec3 c,d,a;in vec4 C,P,U;out vec4 o;uniform sampler2D s;void main(){float n=max(dot(d,-normalize(cross(dFdx(P.xyz),dFdy(P.xyz)))),0.);o=mix(texture(s,U.xy),vec4(c*C.rgb*n+a*C.rgb,1.),C.a);}`);
+    const fs = gl.createShader(35632);
+    gl.shaderSource(fs, `#version 300 es\nprecision lowp float;uniform vec3 c,d,a;in vec4 C,P,U;out vec4 o;uniform sampler2D s;void main(){float n=max(dot(d,-normalize(cross(dFdx(P.xyz),dFdy(P.xyz)))),0.);o=mix(texture(s,U.xy),vec4(c*C.rgb*n+a*C.rgb,1.),C.a);}`);
     gl.compileShader(fs);
-    //console.log('vertex shader:', gl.getShaderInfoLog(fs) || 'OK');
 
-    // Program
-    program = gl.createProgram();
+    const program = gl.createProgram();
     gl.attachShader(program, vs);
     gl.attachShader(program, fs);
     gl.linkProgram(program);
     gl.useProgram(program);
 
-    // Set the clear color and enable the depth test
+    // Lookups
+    const attrib_p = gl.getAttribLocation(program, 'p');
+    const attrib_u = gl.getAttribLocation(program, 'u');
+    const attrib_c = gl.getAttribLocation(program, 'c');
+    const uni_M = gl.getUniformLocation(program, 'M');
+    const uni_m = gl.getUniformLocation(program, 'm');
+    const uni_c = gl.getUniformLocation(program, 'c');
+    const uni_d = gl.getUniformLocation(program, 'd');
+    const uni_a = gl.getUniformLocation(program, 'a');
+    const uni_s = gl.getUniformLocation(program, 's');
+
+    // Reusable buffers
+    const posBuffer = gl.createBuffer();
+    const uvBuffer = gl.createBuffer();
+
+    // Geometry cache
+    const modelCache = new Map();
+
+    // Texture cache (keyed by image element)
+    const textureCache = new WeakMap();
+
+    // Global state
+    gl.enable(2929); // DEPTH_TEST
+    gl.blendFunc(770, 771);
+    gl.activeTexture(33984);
+    gl.pixelStorei(37441, 1);
+    gl.pixelStorei(37440, 1);
+
+    this._state = { gl, program, attrib_p, attrib_u, attrib_c, uni_M, uni_m, uni_c, uni_d, uni_a, uni_s, posBuffer, uvBuffer, modelCache, textureCache };
+    return this._state;
+  },
+
+  _getModelVerts(name){
+    // Returns [vertices, uvs]
+    if (name === 'plane') return cube(); // front face is first 6 verts; we will draw 6 only
+    return cube();
+  },
+
+  render: (scene, gl, aspectratio) => {
+    const s = W._getState(gl);
+    gl.useProgram(s.program);
+
+    // Clear and lights
     gl.clearColor(...scene.b.c, 1);
-    gl.enable(2929);
-
-    // Set the diffuse light color and direction
-    gl.uniform3f(gl.getUniformLocation(program, 'c'), ...scene.d.c);
-    gl.uniform3f(gl.getUniformLocation(program, 'd'), ...scene.d.p);
-
-    // Set the ambient light color
-    gl.uniform3f(gl.getUniformLocation(program, 'a'), ...scene.a.c);
-    
-    // Clear
     gl.clear(16640);
+    gl.uniform3f(s.uni_c, ...scene.d.c);
+    gl.uniform3f(s.uni_d, ...scene.d.p);
+    gl.uniform3f(s.uni_a, ...scene.a.c);
 
-    // Render each object
-    for(i of scene.o){
-      
-      // Default blending method for transparent objects
-      gl.blendFunc(770 /* SRC_ALPHA */, 771 /* ONE_MINUS_SRC_ALPHA */);
-      
-      // Enable texture 0
-      gl.activeTexture(33984 /* TEXTURE0 */);
-      
-      // Initialize the model (cube by default)
-      [vertices, uv] = (window[i.m] || cube)();
-
-      // Alpha-blending
-      gl.enable(3042 /* BLEND */);
-
-      // Set position buffer
-      gl.bindBuffer(34962, gl.createBuffer());
-      gl.bufferData(34962, new Float32Array(vertices), 35044);
-      gl.vertexAttribPointer(a=gl.getAttribLocation(program, 'p'), 3, 5126, 0, 0, 0);
-      gl.enableVertexAttribArray(a);
-      
-      // Set uv buffer
-      gl.bindBuffer(34962, gl.createBuffer());
-      gl.bufferData(34962, new Float32Array(uv), 35044);
-      gl.vertexAttribPointer(a=gl.getAttribLocation(program, 'u'), 2, 5126, 0, 0, 0);
-      gl.enableVertexAttribArray(a);
-      
-      // Set the model matrix
-      modelMatrix = new DOMMatrix().translate(...(i.p||[0,0,0])).rotate(...(i.r||[0,0,0])).scale(...(i.s||[1,1,1]));
-      gl.uniformMatrix4fv(gl.getUniformLocation(program, 'm'), 0, modelMatrix.toFloat32Array());
-      
-      // Set the model's color
-      if (i.c) {
-        gl.vertexAttrib3f(gl.getAttribLocation(program, 'c'), ...i.c);
+    for (const i of scene.o) {
+      // Geometry (cache by model)
+      let geo = s.modelCache.get(i.m);
+      if (!geo) {
+        geo = W._getModelVerts(i.m);
+        s.modelCache.set(i.m, geo);
       }
-      
-      // or texture
-      else {
-        gl.vertexAttrib4f(gl.getAttribLocation(program, 'c'), 0,0,0,0);
-        if(i.t){
-          texture = gl.createTexture();
-          gl.pixelStorei(37441 /* UNPACK_PREMULTIPLY_ALPHA_WEBGL */, 1);
-          gl.bindTexture(3553 /* TEXTURE_2D */, texture);
-          gl.pixelStorei(37440 /* UNPACK_FLIP_Y_WEBGL */, 1);
-          gl.texImage2D(3553 /* TEXTURE_2D */, 0, 6408 /* RGBA */, 6408 /* RGBA */, 5121 /* UNSIGNED_BYTE */, i.t);
-          gl.generateMipmap(3553 /* TEXTURE_2D */);
-          gl.bindTexture(3553 /* TEXTURE_2D */, texture);
-          gl.uniform1i(gl.getUniformLocation(program, 's'), 0);
+      const [vertices, uv] = geo;
+
+      // Position buffer
+      gl.bindBuffer(34962, s.posBuffer);
+      gl.bufferData(34962, new Float32Array(vertices), 35044);
+      gl.vertexAttribPointer(s.attrib_p, 3, 5126, 0, 0, 0);
+      gl.enableVertexAttribArray(s.attrib_p);
+
+      // UV buffer
+      gl.bindBuffer(34962, s.uvBuffer);
+      gl.bufferData(34962, new Float32Array(uv), 35044);
+      gl.vertexAttribPointer(s.attrib_u, 2, 5126, 0, 0, 0);
+      gl.enableVertexAttribArray(s.attrib_u);
+
+      // Model matrix
+      const modelMatrix = new DOMMatrix().translate(...(i.p||[0,0,0])).rotate(...(i.r||[0,0,0])).scale(...(i.s||[1,1,1]));
+      gl.uniformMatrix4fv(s.uni_m, 0, modelMatrix.toFloat32Array());
+
+      // Color or texture
+      if (i.c) {
+        gl.vertexAttrib4f(s.attrib_c, i.c[0], i.c[1], i.c[2], 1);
+      } else {
+        gl.vertexAttrib4f(s.attrib_c, 0, 0, 0, 0);
+        if (i.t) {
+          let tex = s.textureCache.get(i.t);
+          if (!tex) {
+            tex = gl.createTexture();
+            gl.bindTexture(3553, tex);
+            gl.texParameteri(3553, 10241, 9987); // MIN_FILTER = LINEAR_MIPMAP_LINEAR
+            gl.texParameteri(3553, 10240, 9729); // MAG_FILTER = LINEAR
+            gl.texImage2D(3553, 0, 6408, 6408, 5121, i.t);
+            gl.generateMipmap(3553);
+            s.textureCache.set(i.t, tex);
+          }
+          gl.bindTexture(3553, tex);
+          gl.uniform1i(s.uni_s, 0);
         }
       }
 
-      // Set the cube's mvp matrix (camera x model)
-      // Camera matrix (fov: 30deg, near: 0.1, far: 100)
-      gl.uniformMatrix4fv(gl.getUniformLocation(program, 'M'), 0, (new DOMMatrix([
-      1.8 / aspectratio, 0, 0, 0,  0, 1.8, 0, 0,  0, 0, -1.001, -1,  0, 0, -.2, 0
-      ]).rotate(...scene.c.r)).translate(...scene.c.p).multiply(modelMatrix).toFloat32Array());
+      // MVP matrix
+      const M = new DOMMatrix([
+        1.8 / aspectratio, 0, 0, 0,
+        0, 1.8, 0, 0,
+        0, 0, -1.001, -1,
+        0, 0, -.2, 0,
+      ]).rotate(...scene.c.r).translate(...scene.c.p).multiply(modelMatrix).toFloat32Array();
+      gl.uniformMatrix4fv(s.uni_M, 0, M);
 
-      // Render
-      // (Special case for plane: render the front face of a cube)
-      gl.drawArrays(4, 0, i.m == "plane" ? 6 : vertices.length / 3);
+      // Draw
+      gl.enable(3042);
+      gl.drawArrays(4, 0, i.m == 'plane' ? 6 : vertices.length / 3);
     }
   }
 }

@@ -20,7 +20,7 @@ let currentMap = null;
 const scene = {
 
   // Background color (rgb)
-  b: { c: [.5,.2,.2] },
+  b: { c: [0,0,.2] },
   
   // Camera position and rotation
   c: {p: [0, 0, -10], r: [0, 0, 0]},
@@ -249,24 +249,14 @@ function update() {
 
 function draw() {
   let frameWithDirection = (direction === -1 ? 20 : 0) + currentFrame;
-  // W.camera({
-  //   rx: 10,
-  //   x: player.x + player.w / 2,
-  //   y: player.y + player.h / 2,
-  //   z: z + player.z,
-  // });
-  // W.plane({
-  //   n: "player",
-  //   x: player.x + player.w / 2,
-  //   y: player.y + player.h / 2,
-  //   w: 2,
-  //   h: 2,
-  //   z: player.z,
-  //   t: sprites[frameWithDirection],
-  // });
-  
-  scene.c.p[0] = player.x
-  scene.c.p[1] = player.y
+
+  scene.c.p[0] = 5 - player.x - 10
+  scene.c.p[1] = 5 - player.y - 10
+  player.cat.p[0] = player.x
+  player.cat.p[1] = player.y
+  player.cat.p[2] = 0
+  player.cat.t = sprites[frameWithDirection]
+
 }
 
 let sprites = []; // Varmista, että tämä taulukko on olemassa globaalisti
@@ -356,39 +346,11 @@ function renderMap(map, zValue, mapName) {
     for (let x = 0; x < mapWidth; x++) {
       const ch = mapRow[x];
       if (ch === "#") {
-        // Keep the original front plane for the tile
-        scene.o.push({
-          m: "plane",
-          s: [.5, .5, .5],
-          p: [x, worldY, zValue],
-          r: [0, 0, 0],
-          t: sprites[18],
-        });
-
-        const isSolidLeft = x - 1 >= 0 && mapRow[x - 1] === "#";
-        const isSolidRight = x + 1 < mapWidth && mapRow[x + 1] === "#";
-        const aboveRow = row - 1 >= 0 ? map[row - 1] : null;
-        const belowRow = row + 1 < mapHeight ? map[row + 1] : null;
-        const isSolidTop = aboveRow && aboveRow[x] === "#";
-        const isSolidBottom = belowRow && belowRow[x] === "#";
-        // Left edge (start)
-        if (!isSolidLeft) {
-          scene.o.push({ m: "plane", s: [.5, .5, .5], p: [x - 1, worldY, zValue], r: [0, 90, 0], c: [0, 1, 1] });
-        }
-        // Right edge (end)
-        if (!isSolidRight) {
-          scene.o.push({ m: "plane", s: [.5, .5, .5], p: [x, worldY, zValue], r: [0, 90, 0], c: [1, 1, 0] });
-        }
-        // Bottom edge
-        if (!isSolidBottom) {
-          scene.o.push({ m: "plane", s: [.5, .5, .5], p: [x, worldY, zValue], r: [90, 0, 0], c: [0, 1, 0] });
-        }
-        // Top edge
-        if (!isSolidTop) {
-          scene.o.push({ m: "plane", s: [.5, .5, .5], p: [x, worldY + 1, zValue], r: [90, 0, 0], c: [0, 1, 0] });
-        }
+        scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[18]})
       }
-      
+      if (ch === "^") {
+        scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[19]})
+      }
     }
   }
 }
@@ -433,14 +395,17 @@ function showStartMenu() {
 function init() {
   initMap(map1);
 
-  renderMap(map1, -5, "map1")
+  renderMap(map1, 0, "map1")
+  renderMap(map2, -1, "map2")
   scene.o.push({
     m: "plane",
+    n: "cat",
     s: [.5, .5, .5],
-    p: [0,0, 0],
+    p: [0,0, -4],
     r: [0, 0, 0],
-    t: sprites[1],
+    t: sprites[8],
   });
+  player.cat = scene.o.find((item, index) => item.n === 'cat')
   requestAnimationFrame(gameLoop);
 }
 
