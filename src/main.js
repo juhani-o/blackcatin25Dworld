@@ -23,7 +23,7 @@ const scene = {
   b: { c: [0,0,.2] },
   
   // Camera position and rotation
-  c: {p: [0, 0, -10], r: [0, 0, 0]},
+  c: {p: [6, 5, -10], r: [0, 0, 0]},
   
   // Diffuse light position and color
   d: {p: [.5, -.3, -.7], c: [1, 1, 1]},
@@ -64,11 +64,14 @@ const JUMP_PEAK_FRAME = 2;
 const JUMP_DOWN_FRAME = 3;
 
 let currentFrame = IDLE_FRAME;
-let animationSpeed = 3;
+let animationSpeed = 2;
 let frameTimer = 0;
 let direction = 1;
 
 let keys = {};
+
+// Teleport state to avoid repeated toggles while staying on the tile
+let wasOnTeleport = false;
 
 function initMap(map) {
   currentMap = map;
@@ -84,45 +87,22 @@ function isSolid(tx, ty) {
 }
 
 function moveAndCollide(x, y, w, h, dx, dy) {
-  let newX = x + dx;
-  let newY = y + dy;
-  let collidedX = false;
-  let collidedY = false; // X-axis collision check
-
-  let leftTileX = Math.floor(newX / TILE_SIZE);
-  let rightTileX = Math.floor((newX + w - EPS) / TILE_SIZE);
-  let bottomTileY = Math.floor(y / TILE_SIZE);
-  let topTileY = Math.floor((y + h - EPS) / TILE_SIZE);
-
-  for (let ty = bottomTileY; ty <= topTileY; ty++) {
-    if (dx > 0 && isSolid(rightTileX, ty)) {
-      collidedX = true;
-      newX = rightTileX * TILE_SIZE - w;
-      break;
-    } else if (dx < 0 && isSolid(leftTileX, ty)) {
-      collidedX = true;
-      newX = (leftTileX + 1) * TILE_SIZE;
-      break;
-    }
-  } // Y-axis collision check
-
-  let leftTileY = Math.floor(newX / TILE_SIZE);
-  let rightTileY = Math.floor((newX + w - EPS) / TILE_SIZE);
-  bottomTileY = Math.floor(newY / TILE_SIZE);
-  topTileY = Math.floor((newY + h - EPS) / TILE_SIZE);
-
-  for (let tx = leftTileY; tx <= rightTileY; tx++) {
-    if (dy > 0 && isSolid(tx, topTileY)) {
-      collidedY = true;
-      newY = topTileY * TILE_SIZE - h;
-      break;
-    } else if (dy < 0 && isSolid(tx, bottomTileY)) {
-      collidedY = true;
-      newY = (bottomTileY + 1) * TILE_SIZE;
-      break;
-    }
+  let newX = x + dx, newY = y + dy, collidedX = false, collidedY = false;
+  
+  // X collision
+  let leftX = Math.floor(newX / TILE_SIZE), rightX = Math.floor((newX + w - EPS) / TILE_SIZE);
+  for (let ty = Math.floor(y / TILE_SIZE); ty <= Math.floor((y + h - EPS) / TILE_SIZE); ty++) {
+    if (dx > 0 && isSolid(rightX, ty)) { collidedX = true; newX = rightX * TILE_SIZE - w; break; }
+    if (dx < 0 && isSolid(leftX, ty)) { collidedX = true; newX = (leftX + 1) * TILE_SIZE; break; }
   }
-
+  
+  // Y collision
+  let leftY = Math.floor(newX / TILE_SIZE), rightY = Math.floor((newX + w - EPS) / TILE_SIZE);
+  for (let tx = leftY; tx <= rightY; tx++) {
+    if (dy > 0 && isSolid(tx, Math.floor((newY + h - EPS) / TILE_SIZE))) { collidedY = true; newY = Math.floor((newY + h - EPS) / TILE_SIZE) * TILE_SIZE - h; break; }
+    if (dy < 0 && isSolid(tx, Math.floor(newY / TILE_SIZE))) { collidedY = true; newY = (Math.floor(newY / TILE_SIZE) + 1) * TILE_SIZE; break; }
+  }
+  
   return { x: newX, y: newY, collidedX, collidedY };
 }
 
@@ -189,7 +169,16 @@ function update() {
     }
   }
 
-  // Teleporting removed for better performance
+  // Teleporting functionality
+  const isUserOnTeleport = checkTileBelowPlayer("^");
+  if (isUserOnTeleport && !wasOnTeleport && player.onGround) {
+    if (currentMap === map1) {
+      currentMap = map2;
+    } else if (currentMap === map2) {
+      currentMap = map1;
+    }
+  }
+  wasOnTeleport = isUserOnTeleport;
 
   if ((keys[" "] || keys["Space"]) && player.onGround) {
     player.vy = JUMP_FORCE;
@@ -250,13 +239,26 @@ function update() {
 function draw() {
   let frameWithDirection = (direction === -1 ? 20 : 0) + currentFrame;
 
-  scene.c.p[0] = 5 - player.x - 10
-  scene.c.p[1] = 5 - player.y - 10
+  // Clear scene and rebuild
+  scene.o = [];
+  
+  // Render both maps at their original z locations - active with normal sprites, inactive with transparent
+  if (currentMap === map1) {
+    renderMap(map1, 0, "map1", false); // Active map - normal sprites
+    renderMap(map2, -2, "map2", true); // Inactive map - transparent sprites at original z
+  } else {
+    renderMap(map2, -2, "map2", false); // Active map - normal sprites at original z
+    renderMap(map1, 0, "map1", true); // Inactive map - transparent sprites at original z
+  }
+  
+  // Add player
+  scene.c.p[0] = 0 - player.x
+  scene.c.p[1] = 0 - player.y
   player.cat.p[0] = player.x
   player.cat.p[1] = player.y
   player.cat.p[2] = 0
   player.cat.t = sprites[frameWithDirection]
-
+  scene.o.push(player.cat);
 }
 
 let sprites = []; // Varmista, että tämä taulukko on olemassa globaalisti
@@ -279,7 +281,7 @@ function parseImagesFromSheet() {
 
     // Alustetaan taulukko oikean kokoisena
     const numSprites = img.width / spriteWidth;
-    totalSprites = numSprites * 2; // Oikea ja peilattu versio
+    totalSprites = numSprites * 3; // Original, mirrored, and 50% transparent versions
 
     const allSpritesLoaded = () => {
       loadedSprites++;
@@ -336,20 +338,50 @@ function parseImagesFromSheet() {
       splitImage.onload = allSpritesLoaded;
       sprites.push(splitImage);
     }
+
+    // 50% transparent sprites
+    for (let i = 0; i < numSprites; i++) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.globalAlpha = 0.5;
+      ctx.drawImage(
+        img,
+        i * spriteWidth,
+        0,
+        spriteWidth,
+        spriteHeight,
+        0,
+        0,
+        spriteWidth,
+        spriteHeight,
+      );
+      ctx.globalAlpha = 1.0;
+
+      const splitImage = new Image();
+      splitImage.src = canvas.toDataURL();
+      splitImage.id = `sprite_${i + numSprites * 2}`;
+      splitImage.onload = allSpritesLoaded;
+      sprites.push(splitImage);
+    }
   };
 }
 
-function renderMap(map, zValue, mapName) {
+function renderMap(map, zValue, mapName, useTransparent = false) {
+  const numSprites = sprites.length / 3; // Get original sprite count
+  const spriteOffset = useTransparent ? numSprites * 2 : 0; // Use transparent sprites if requested
+  
   for (let row = 0; row < mapHeight; row++) {
     const mapRow = map[row];
     const worldY = mapHeight - 1 - row;
     for (let x = 0; x < mapWidth; x++) {
       const ch = mapRow[x];
       if (ch === "#") {
-        scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[18]})
+        scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[18 + spriteOffset]})
       }
       if (ch === "^") {
-        scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[19]})
+        scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[19 + spriteOffset]})
+      }
+      if (ch === "A") {
+        scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[17 + spriteOffset]})
       }
     }
   }
@@ -400,7 +432,7 @@ function init() {
   scene.o.push({
     m: "plane",
     n: "cat",
-    s: [.5, .5, .5],
+    s: [.75, .75, .75],
     p: [0,0, -4],
     r: [0, 0, 0],
     t: sprites[8],
