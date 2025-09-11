@@ -20,10 +20,10 @@ let currentMap = null;
 const scene = {
 
   // Background color (rgb)
-  b: { c: [0,0,0] },
+  b: { c: [.5,.2,.2] },
   
   // Camera position and rotation
-  c: {p: [3, 0, -10], r: [0, 0, 0]},
+  c: {p: [0, 0, -10], r: [0, 0, 0]},
   
   // Diffuse light position and color
   d: {p: [.5, -.3, -.7], c: [1, 1, 1]},
@@ -143,13 +143,12 @@ const TARGET_FPS = 60;
 const FRAME_TIME = 1000 / TARGET_FPS; // 16.67ms per frame
 
 function gameLoop() {
-  //update();
-  //draw();
-  rot-=.1;
-  scene.c.p[0] = rot;
+  update();
+  draw();
   let ratio = 600/400;
-  W.render(scene, gl, ratio)
+ 
   requestAnimationFrame(gameLoop);
+  W.render(scene, gl, ratio)
 }
 
 function checkTileBelowPlayer(tileType) {
@@ -250,21 +249,24 @@ function update() {
 
 function draw() {
   let frameWithDirection = (direction === -1 ? 20 : 0) + currentFrame;
-  W.camera({
-    rx: 10,
-    x: player.x + player.w / 2,
-    y: player.y + player.h / 2,
-    z: z + player.z,
-  });
-  W.plane({
-    n: "player",
-    x: player.x + player.w / 2,
-    y: player.y + player.h / 2,
-    w: 2,
-    h: 2,
-    z: player.z,
-    t: sprites[frameWithDirection],
-  });
+  // W.camera({
+  //   rx: 10,
+  //   x: player.x + player.w / 2,
+  //   y: player.y + player.h / 2,
+  //   z: z + player.z,
+  // });
+  // W.plane({
+  //   n: "player",
+  //   x: player.x + player.w / 2,
+  //   y: player.y + player.h / 2,
+  //   w: 2,
+  //   h: 2,
+  //   z: player.z,
+  //   t: sprites[frameWithDirection],
+  // });
+  
+  scene.c.p[0] = player.x
+  scene.c.p[1] = player.y
 }
 
 let sprites = []; // Varmista, että tämä taulukko on olemassa globaalisti
@@ -389,7 +391,6 @@ function renderMap(map, zValue, mapName) {
       
     }
   }
-  console.log("Scene ", scene)
 }
 
 function showStartMenu() {
@@ -431,7 +432,15 @@ function showStartMenu() {
 
 function init() {
   initMap(map1);
+
   renderMap(map1, -5, "map1")
+  scene.o.push({
+    m: "plane",
+    s: [.5, .5, .5],
+    p: [0,0, 0],
+    r: [0, 0, 0],
+    t: sprites[1],
+  });
   requestAnimationFrame(gameLoop);
 }
 
