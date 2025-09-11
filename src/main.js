@@ -3,7 +3,7 @@ import { map1, map2 } from "./maps/maps.js";
 import spritesheet from "./assets/spritesheet.png";
 
 const canvas = document.getElementById("myCanvas");
-const gl = canvas.getContext("webgl2");
+const gl = canvas.getContext("webgl2", { antialias: true, preserveDrawingBuffer: true });
 
 // ----- Basic Settings -----
 const TILE_SIZE = 1;
@@ -46,8 +46,8 @@ let player = {
   x: 6,
   y: 5,
   z: 0.5,
-  w: 2,
-  h: 1.5,
+  w: .75, 
+  h: .75,
   speed: 0.1,
   vy: 0,
   onGround: false,
@@ -83,17 +83,40 @@ function initMap(map) {
 function isSolid(tx, ty) {
   if (tx < 0 || tx >= mapWidth) return false;
   if (ty < 0 || ty >= mapHeight) return false;
-  return currentMap[mapHeight - 1 - ty][tx] !== ".";
+  const tile = currentMap[mapHeight - 1 - ty][tx];
+  return tile !== "." && tile !== "P"; // P tiles are not solid (collectible coins)
+}
+
+function collectCoin() {
+  const playerBottomY = Math.floor(player.y - 0.1);
+  const playerCenterX = player.x + player.w / 2;
+  const playerBottomTileX = Math.floor(playerCenterX);
+  const mapY = mapHeight - 1 - playerBottomY;
+
+  if (
+    playerBottomTileX >= 0 &&
+    playerBottomTileX < mapWidth &&
+    mapY >= 0 &&
+    mapY < mapHeight &&
+    currentMap[mapY][playerBottomTileX] === "P"
+  ) {
+    // Remove the coin by replacing "P" with "."
+    currentMap[mapY] = currentMap[mapY].substring(0, playerBottomTileX) + "." + currentMap[mapY].substring(playerBottomTileX + 1);
+    console.log("Coin collected");
+    return true; // Coin collected
+  }
+  return false; // No coin collected
 }
 
 function moveAndCollide(x, y, w, h, dx, dy) {
   let newX = x + dx, newY = y + dy, collidedX = false, collidedY = false;
   
   // X collision
-  let leftX = Math.floor(newX / TILE_SIZE), rightX = Math.floor((newX + w - EPS) / TILE_SIZE);
+  let leftX = Math.floor((newX - (w)) / TILE_SIZE)
+  let rightX = Math.floor((newX + (w * 2)) / TILE_SIZE);
   for (let ty = Math.floor(y / TILE_SIZE); ty <= Math.floor((y + h - EPS) / TILE_SIZE); ty++) {
-    if (dx > 0 && isSolid(rightX, ty)) { collidedX = true; newX = rightX * TILE_SIZE - w; break; }
-    if (dx < 0 && isSolid(leftX, ty)) { collidedX = true; newX = (leftX + 1) * TILE_SIZE; break; }
+    if (dx > 0 && isSolid(rightX, ty)) { collidedX = true; newX = (rightX - (w * 2)) * TILE_SIZE; break; }
+    if (dx < 0 && isSolid(leftX, ty)) { collidedX = true; newX = (leftX + (w * 2)) * TILE_SIZE; break; }
   }
   
   // Y collision
@@ -179,6 +202,9 @@ function update() {
     }
   }
   wasOnTeleport = isUserOnTeleport;
+
+  // Collect coins
+  collectCoin();
 
   if ((keys[" "] || keys["Space"]) && player.onGround) {
     player.vy = JUMP_FORCE;
@@ -383,6 +409,10 @@ function renderMap(map, zValue, mapName, useTransparent = false) {
       if (ch === "A") {
         scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[17 + spriteOffset]})
       }
+      if (ch === "P") {
+        const rotationY = (Date.now() * 0.1) % 360; // Animate rotation over time
+        scene.o.push({ m: "plane", s: [0.5, 0.5,0], p: [x, worldY, zValue ], r: [0, rotationY, 0], t: sprites[16 + spriteOffset]})
+      }
     }
   }
 }
@@ -432,7 +462,7 @@ function init() {
   scene.o.push({
     m: "plane",
     n: "cat",
-    s: [.75, .75, .75],
+    s: [player.w, player.h],
     p: [0,0, -4],
     r: [0, 0, 0],
     t: sprites[8],
