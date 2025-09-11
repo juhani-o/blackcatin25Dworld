@@ -1,4 +1,4 @@
-import "./w.min.full.js";
+import "./w.js";
 import { map1, map2 } from "./maps/maps.js";
 import spritesheet from "./assets/spritesheet.png";
 
@@ -16,6 +16,26 @@ const NORMAL_FPS = 60;
 let mapWidth,
   mapHeight = 0;
 let currentMap = null;
+
+const scene = {
+
+  // Background color (rgb)
+  b: { c: [0,0,0] },
+  
+  // Camera position and rotation
+  c: {p: [3, 0, -10], r: [0, 0, 0]},
+  
+  // Diffuse light position and color
+  d: {p: [.5, -.3, -.7], c: [1, 1, 1]},
+  
+  // Ambient light color
+  a: {c: [0.3, 0.3, 0.2]},
+  
+  // Objects to render (model, size, position, rotation, color)
+  o: [
+    
+  ]
+};
 
 // Initial camera position camera
 let z = 10;
@@ -123,8 +143,12 @@ const TARGET_FPS = 60;
 const FRAME_TIME = 1000 / TARGET_FPS; // 16.67ms per frame
 
 function gameLoop() {
-  update();
-  draw();
+  //update();
+  //draw();
+  rot-=.1;
+  scene.c.p[0] = rot;
+  let ratio = 600/400;
+  W.render(scene, gl, ratio)
   requestAnimationFrame(gameLoop);
 }
 
@@ -230,7 +254,7 @@ function draw() {
     rx: 10,
     x: player.x + player.w / 2,
     y: player.y + player.h / 2,
-    z: z + player.z ,
+    z: z + player.z,
   });
   W.plane({
     n: "player",
@@ -324,41 +348,48 @@ function parseImagesFromSheet() {
 }
 
 function renderMap(map, zValue, mapName) {
-  W.group({n: mapName});
   for (let row = 0; row < mapHeight; row++) {
     const mapRow = map[row];
     const worldY = mapHeight - 1 - row;
     for (let x = 0; x < mapWidth; x++) {
       const ch = mapRow[x];
       if (ch === "#") {
-        W.cube({
-          g: mapName,
-          n: `ground_${mapName}_${row}_${x}`,
-          x: x + 0.5,
-          y: worldY + 0.5,
-          z: zValue,
-          w: 1,
-          h: 1,
-          d: 1,
+        // Keep the original front plane for the tile
+        scene.o.push({
+          m: "plane",
+          s: [.5, .5, .5],
+          p: [x, worldY, zValue],
+          r: [0, 0, 0],
           t: sprites[18],
         });
+
+        const isSolidLeft = x - 1 >= 0 && mapRow[x - 1] === "#";
+        const isSolidRight = x + 1 < mapWidth && mapRow[x + 1] === "#";
+        const aboveRow = row - 1 >= 0 ? map[row - 1] : null;
+        const belowRow = row + 1 < mapHeight ? map[row + 1] : null;
+        const isSolidTop = aboveRow && aboveRow[x] === "#";
+        const isSolidBottom = belowRow && belowRow[x] === "#";
+        // Left edge (start)
+        if (!isSolidLeft) {
+          scene.o.push({ m: "plane", s: [.5, .5, .5], p: [x - 1, worldY, zValue], r: [0, 90, 0], c: [0, 1, 1] });
+        }
+        // Right edge (end)
+        if (!isSolidRight) {
+          scene.o.push({ m: "plane", s: [.5, .5, .5], p: [x, worldY, zValue], r: [0, 90, 0], c: [1, 1, 0] });
+        }
+        // Bottom edge
+        if (!isSolidBottom) {
+          scene.o.push({ m: "plane", s: [.5, .5, .5], p: [x, worldY, zValue], r: [90, 0, 0], c: [0, 1, 0] });
+        }
+        // Top edge
+        if (!isSolidTop) {
+          scene.o.push({ m: "plane", s: [.5, .5, .5], p: [x, worldY + 1, zValue], r: [90, 0, 0], c: [0, 1, 0] });
+        }
       }
-      if (ch === "A") {
-        W.cube({
-          g: mapName,
-          n: `jump_${mapName}_${row}_${x}`,
-          x: x + 0.5,
-          y: worldY + 0.5,
-          z: zValue,
-          w: 1,
-          h: 1,
-          d: 1,
-          t: sprites[17],
-        });
-      }
-      // Teleport tiles (^) removed for performance
+      
     }
   }
+  console.log("Scene ", scene)
 }
 
 function showStartMenu() {
@@ -400,12 +431,7 @@ function showStartMenu() {
 
 function init() {
   initMap(map1);
-  W.reset(canvas);
-  W.ambient(0.7);
-  W.clearColor("#00000000");
-  
-  // Only render map1 for better performance
-  renderMap(map1, 0, "map1");
+  renderMap(map1, -5, "map1")
   requestAnimationFrame(gameLoop);
 }
 
