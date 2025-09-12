@@ -1,4 +1,5 @@
 import "./w.js";
+import zzfx from "./ZzFXMicro.min.js";
 import { map1, map2 } from "./maps/maps.js";
 import spritesheet from "./assets/spritesheet.png";
 
@@ -41,6 +42,8 @@ const scene = {
 let z = 10;
 let rot = 0;
 
+
+
 // Player
 let player = {
   x: 6,
@@ -73,6 +76,7 @@ let keys = {};
 // Teleport state to avoid repeated toggles while staying on the tile
 let wasOnTeleport = false;
 
+
 function initMap(map) {
   currentMap = map;
   mapWidth = map[0].length;
@@ -103,6 +107,8 @@ function collectCoin() {
     // Remove the coin by replacing "P" with "."
     currentMap[mapY] = currentMap[mapY].substring(0, playerBottomTileX) + "." + currentMap[mapY].substring(playerBottomTileX + 1);
     console.log("Coin collected");
+    // Collect coin sound
+    zzfx(2,.05,331,.02,.06,.26,0,2.5,0,0,482,.09,.02,0,0,0,.04,.55,.03,0,0);
     return true; // Coin collected
   }
   return false; // No coin collected
@@ -200,6 +206,8 @@ function update() {
     } else if (currentMap === map2) {
       currentMap = map1;
     }
+    // Teleport sound
+    zzfx(1,.05,882,0,.09,.01,2,1.2,-27,-30,0,0,0,.1,0,0,0,.84,.47,0,0);
   }
   wasOnTeleport = isUserOnTeleport;
 
@@ -209,6 +217,8 @@ function update() {
   if ((keys[" "] || keys["Space"]) && player.onGround) {
     player.vy = JUMP_FORCE;
     player.onGround = false;
+    // Jump sound
+    zzfx(.8,.05,320,.01,.03,.06,1,.2,0,145,0,0,0,0,0,0,0,.98,.01,0,-1117);
   }
   player.vy += GRAVITY;
   if (player.vy < MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
@@ -226,6 +236,10 @@ function update() {
   player.y = res.y;
 
   if (res.collidedY && player.vy <= 0) {
+    if (!player.onGround) {
+      // Land sound
+      zzfx(2,.05,249,.03,0,.04,4,2.8,0,-10,0,0,0,1.8,0,.2,.14,.97,.01,0,0);
+    }
     player.onGround = true;
     player.vy = 0;
   } else if (res.collidedY && player.vy > 0) {
@@ -470,5 +484,6 @@ function init() {
   player.cat = scene.o.find((item, index) => item.n === 'cat')
   requestAnimationFrame(gameLoop);
 }
+
 
 parseImagesFromSheet();
