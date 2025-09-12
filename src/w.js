@@ -61,7 +61,7 @@ W = {
     gl.useProgram(s.program);
 
     // Clear and lights
-    gl.clearColor(...scene.b.c, 1);
+    gl.clearColor(...scene.b.c);
     gl.clear(16640);
     gl.uniform3f(s.uni_c, ...scene.d.c);
     gl.uniform3f(s.uni_d, ...scene.d.p);

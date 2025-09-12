@@ -4,9 +4,9 @@ import { map1, map2 } from "./maps/maps.js";
 import spritesheet from "./assets/spritesheet.png";
 
 const canvas = document.getElementById("myCanvas");
-const gl = canvas.getContext("webgl2", { antialias: true, preserveDrawingBuffer: true });
+const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
 
-// ----- Basic Settings -----
+// Consts, basic settings
 const TILE_SIZE = 1;
 const EPS = 0.001;
 const GRAVITY = -0.015;
@@ -18,10 +18,14 @@ let mapWidth,
   mapHeight = 0;
 let currentMap = null;
 
+
+// Let's define allmost empty scene. "o" contains objects to rendet.
+// https://xem.github.io/microW/ with slight modifications
+
 const scene = {
 
   // Background color (rgb)
-  b: { c: [0,0,.2] },
+  b: { c: [0,0,0,0] },
   
   // Camera position and rotation
   c: {p: [6, 5, -10], r: [0, 0, 0]},
@@ -42,9 +46,7 @@ const scene = {
 let z = 10;
 let rot = 0;
 
-
-
-// Player
+// Player object. Static start point, time ran out.
 let player = {
   x: 6,
   y: 5,
@@ -76,6 +78,9 @@ let keys = {};
 // Teleport state to avoid repeated toggles while staying on the tile
 let wasOnTeleport = false;
 
+// Handles time counter and coins
+let userTime = document.getElementById("time");
+let userCoins = document.getElementById("coins");
 
 function initMap(map) {
   currentMap = map;
@@ -92,24 +97,32 @@ function isSolid(tx, ty) {
 }
 
 function collectCoin() {
-  const playerBottomY = Math.floor(player.y - 0.1);
-  const playerCenterX = player.x + player.w / 2;
-  const playerBottomTileX = Math.floor(playerCenterX);
-  const mapY = mapHeight - 1 - playerBottomY;
-
-  if (
-    playerBottomTileX >= 0 &&
-    playerBottomTileX < mapWidth &&
-    mapY >= 0 &&
-    mapY < mapHeight &&
-    currentMap[mapY][playerBottomTileX] === "P"
-  ) {
-    // Remove the coin by replacing "P" with "."
-    currentMap[mapY] = currentMap[mapY].substring(0, playerBottomTileX) + "." + currentMap[mapY].substring(playerBottomTileX + 1);
-    console.log("Coin collected");
-    // Collect coin sound
-    zzfx(2,.05,331,.02,.06,.26,0,2.5,0,0,482,.09,.02,0,0,0,.04,.55,.03,0,0);
-    return true; // Coin collected
+  // Check multiple tiles around the player for coins
+  const playerLeft = Math.floor(player.x);
+  const playerRight = Math.floor(player.x + player.w * 2);
+  const playerTop = Math.floor(player.y + player.h * 2);
+  const playerBottom = Math.floor(player.y);
+  
+  // Check all tiles the player occupies
+  for (let tx = playerLeft; tx <= playerRight; tx++) {
+    for (let ty = playerBottom; ty <= playerTop; ty++) {
+      const mapY = mapHeight - 1 - ty;
+      
+      if (
+        tx >= 0 &&
+        tx < mapWidth &&
+        mapY >= 0 &&
+        mapY < mapHeight &&
+        currentMap[mapY][tx] === "P"
+      ) {
+        // Remove the coin by replacing "P" with "."
+        currentMap[mapY] = currentMap[mapY].substring(0, tx) + "." + currentMap[mapY].substring(tx + 1);
+        console.log("Coin collected");
+        // Collect coin sound
+        zzfx(2,.05,331,.02,.06,.26,0,2.5,0,0,482,.09,.02,0,0,0,.04,.55,.03,0,0);
+        return true; // Coin collected
+      }
+    }
   }
   return false; // No coin collected
 }
@@ -282,6 +295,7 @@ function draw() {
   // Clear scene and rebuild
   scene.o = [];
   
+  
   // Render both maps at their original z locations - active with normal sprites, inactive with transparent
   if (currentMap === map1) {
     renderMap(map1, 0, "map1", false); // Active map - normal sprites
@@ -440,7 +454,7 @@ function showStartMenu() {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "rgba(0,0,0,0.6)",
+    background: "rgba(0,0,0,0.8)",
     color: "#ffffff",
     fontFamily: "monospace, sans-serif",
     fontSize: "20px",
@@ -468,9 +482,9 @@ function showStartMenu() {
   );
 }
 
+// Some init stuff, only two maps. Focus was more on smooth graphics than big maps.
 function init() {
   initMap(map1);
-
   renderMap(map1, 0, "map1")
   renderMap(map2, -1, "map2")
   scene.o.push({
@@ -485,5 +499,5 @@ function init() {
   requestAnimationFrame(gameLoop);
 }
 
-
+// Not probably best function name, but it's the first one that gets called :)
 parseImagesFromSheet();
