@@ -86,11 +86,149 @@ let userCoins = document.getElementById("coins");
 // Set the background image source
 document.getElementById("backgroundImg").src = desertSvg;
 
+// Game timer and statistics
+const GAME_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+let gameStartTime = null;
+let gameEndTime = null;
+let gameState = "waiting"; // "waiting", "running", "ended"
+let totalCoins = 0;
+let collectedCoins = 0;
+
 function initMap(map) {
   currentMap = map;
   mapWidth = map[0].length;
   mapHeight = map.length;
 }
+
+function countTotalCoins() {
+  let count = 0;
+  // Count coins in map1
+  for (let row of map1) {
+    for (let char of row) {
+      if (char === "P") count++;
+    }
+  }
+  // Count coins in map2
+  for (let row of map2) {
+    for (let char of row) {
+      if (char === "P") count++;
+    }
+  }
+  return count;
+}
+
+function updateStatusDisplay() {
+  if (userTime && userCoins) {
+    if (gameState === "running" && gameStartTime) {
+      const elapsed = Date.now() - gameStartTime;
+      const remaining = Math.max(0, GAME_DURATION - elapsed);
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      userTime.textContent = `Time: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    } else {
+      userTime.textContent = "Time: 5:00";
+    }
+    userCoins.textContent = `Coins: ${collectedCoins}/${totalCoins}`;
+  }
+}
+
+function checkGameEnd() {
+  if (gameState !== "running") return;
+  
+  const elapsed = Date.now() - gameStartTime;
+  const timeUp = elapsed >= GAME_DURATION;
+  const allCoinsCollected = collectedCoins >= totalCoins;
+  
+  if (timeUp || allCoinsCollected) {
+    gameState = "ended";
+    gameEndTime = Date.now();
+    showSummaryWindow();
+  }
+}
+
+function showSummaryWindow() {
+  const elapsed = gameEndTime - gameStartTime;
+  const minutes = Math.floor(elapsed / 60000);
+  const seconds = Math.floor((elapsed % 60000) / 1000);
+  const completionPercentage = Math.round((collectedCoins / totalCoins) * 100);
+  
+  const summaryWindow = document.createElement('div');
+  summaryWindow.id = 'summaryWindow';
+  summaryWindow.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    height: 350px;
+    background: rgba(0, 0, 0, 0.95);
+    color: white;
+    padding: 25px;
+    border-radius: 15px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    z-index: 1000;
+    font-family: monospace;
+    text-align: center;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+  `;
+  
+  const isComplete = collectedCoins >= totalCoins;
+  const reason = isComplete ? "Great! You did it!" : "Time's up!";
+  const reasonColor = isComplete ? "#00ff00" : "#ff6b6b";
+  
+  summaryWindow.innerHTML = `
+    <h2 style="margin-top: 0; color: #ffd700; font-size: 24px;">Game Summary</h2>
+    <p style="font-size: 20px; color: ${reasonColor}; font-weight: bold; margin: 15px 0;">${reason}</p>
+    <div style="margin: 20px 0; font-size: 16px;">
+      <p><strong>Time Used:</strong> ${minutes}:${seconds.toString().padStart(2, '0')}</p>
+      <p><strong>Coins Collected:</strong> ${collectedCoins}/${totalCoins}</p>
+      <p><strong>Completion:</strong> ${completionPercentage}%</p>
+      ${isComplete ? '<p style="color: #00ff00; font-weight: bold;">Perfect Score!</p>' : ''}
+    </div>
+    <div style="margin-top: 25px;">
+      <button onclick="restartGame()" style="
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        font-size: 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin: 8px;
+        font-family: monospace;
+      ">Play Again</button>
+    </div>
+  `;
+  
+  document.body.appendChild(summaryWindow);
+}
+
+function restartGame() {
+  // Reset game state
+  gameState = "waiting";
+  gameStartTime = null;
+  gameEndTime = null;
+  collectedCoins = 0;
+  
+  // Remove summary window
+  const summaryWindow = document.getElementById('summaryWindow');
+  if (summaryWindow) summaryWindow.remove();
+  
+  // Clear scene objects
+  scene.o.length = 0;
+  
+  // Reset player position
+  player.x = 6;
+  player.y = 5;
+  player.vy = 0;
+  player.onGround = false;
+  
+  // Restart the game
+  init();
+}
+
+// Make functions globally available
+window.restartGame = restartGame;
 
 // ----- Collision Helpers -----
 function isSolid(tx, ty) {
@@ -124,6 +262,11 @@ function collectCoin() {
         console.log("Coin collected");
         // Collect coin sound
         zzfx(2,.05,331,.02,.06,.26,0,2.5,0,0,482,.09,.02,0,0,0,.04,.55,.03,0,0);
+        
+        // Update collected coins count
+        collectedCoins++;
+        updateStatusDisplay();
+        
         return true; // Coin collected
       }
     }
@@ -169,8 +312,12 @@ const TARGET_FPS = 60;
 const FRAME_TIME = 1000 / TARGET_FPS; // 16.67ms per frame
 
 function gameLoop() {
-  update();
-  draw();
+  if (gameState === "running") {
+    update();
+    draw();
+    checkGameEnd();
+    updateStatusDisplay();
+  }
   let ratio = 600/400;
  
   requestAnimationFrame(gameLoop);
@@ -500,6 +647,16 @@ function init() {
     t: sprites[8],
   });
   player.cat = scene.o.find((item, index) => item.n === 'cat')
+  
+  // Initialize game state and start timer
+  if (gameState === "waiting") {
+    totalCoins = countTotalCoins();
+    collectedCoins = 0;
+    gameState = "running";
+    gameStartTime = Date.now();
+    updateStatusDisplay();
+  }
+  
   requestAnimationFrame(gameLoop);
 }
 

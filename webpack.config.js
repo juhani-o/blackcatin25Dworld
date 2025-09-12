@@ -12,7 +12,7 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: "./src/template.html",
       filename: "index.html",
-      title: "Canvas Animaatio",
+      title: "Black Cat in 2.5 land (js13k)",
     }),
   ],
   optimization: {
