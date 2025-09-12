@@ -2,6 +2,7 @@ import "./w.js";
 import zzfx from "./ZzFXMicro.min.js";
 import { map1, map2 } from "./maps/maps.js";
 import spritesheet from "./assets/spritesheet.png";
+import desertSvg from "./assets/desert.svg";
 
 const canvas = document.getElementById("myCanvas");
 const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
@@ -81,6 +82,9 @@ let wasOnTeleport = false;
 // Handles time counter and coins
 let userTime = document.getElementById("time");
 let userCoins = document.getElementById("coins");
+
+// Set the background image source
+document.getElementById("backgroundImg").src = desertSvg;
 
 function initMap(map) {
   currentMap = map;
