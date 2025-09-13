@@ -40,10 +40,13 @@ const scene = {
   a: {c: [0.3, 0.3, 0.2]},
   
   // Objects to render (model, size, position, rotation, color)
-  o: [
-    
-  ]
+  o: []
 };
+
+// Rendering optimization - separate static and dynamic objects
+let staticObjects = []; // Cached static map objects
+let lastRenderedMap = null; // Track when map changes
+let coinObjects = []; // Cached coin objects (need rotation updates)
 
 // Camera state (unused - keeping for compatibility)
 // let cameraZ = 10;
@@ -219,8 +222,11 @@ function restartGame() {
   const summaryWindow = document.getElementById('summaryWindow');
   if (summaryWindow) summaryWindow.remove();
   
-  // Clear scene objects
-  scene.o.length = 0;
+  // Reset rendering cache
+  staticObjects = [];
+  coinObjects = [];
+  lastRenderedMap = null;
+  scene.o = [];
   
   // Reset player position
   player.x = 6;
@@ -269,7 +275,19 @@ function collectCoin() {
       ) {
         // Remove the coin by replacing "P" with "."
         currentMap[mapY] = currentMap[mapY].substring(0, tx) + "." + currentMap[mapY].substring(tx + 1);
-        // Collect coin sound
+        
+        // Remove coin from cached coin objects - check both active and inactive maps
+        const coinIndex = coinObjects.findIndex(coin => 
+          coin.originalX === tx && coin.originalY === mapHeight - 1 - ty
+        );
+        if (coinIndex !== -1) {
+          coinObjects.splice(coinIndex, 1);
+        }
+        
+        // Force scene rebuild to reflect coin removal
+        lastRenderedMap = null;
+        
+        // Play coin sound
         zzfx(2,.05,331,.02,.06,.26,0,2.5,0,0,482,.09,.02,0,0,0,.04,.55,.03,0,0);
         
         // Update collected coins count
@@ -324,7 +342,7 @@ function moveAndCollide(x, y, w, h, dx, dy) {
       break;
     }
   }
-  
+
   return { x: newX, y: newY, collidedX, collidedY };
 }
 
@@ -348,8 +366,8 @@ let animationId = null;
 
 function gameLoop() {
   if (gameState === "running") {
-    update();
-    draw();
+  update();
+  draw();
     checkGameEnd();
     updateStatusDisplay();
   }
@@ -406,11 +424,11 @@ function update() {
   // Teleporting functionality
   const isUserOnTeleport = checkTileBelowPlayer("^");
   if (isUserOnTeleport && !wasOnTeleport && player.onGround) {
-    if (currentMap === map1) {
-      currentMap = map2;
-    } else if (currentMap === map2) {
-      currentMap = map1;
-    }
+      if (currentMap === map1) {
+        currentMap = map2;
+      } else if (currentMap === map2) {
+        currentMap = map1;
+      }
     // Teleport sound
     zzfx(1,.05,882,0,.09,.01,2,1.2,-27,-30,0,0,0,.1,0,0,0,.84,.47,0,0);
   }
@@ -484,28 +502,42 @@ function update() {
 function draw() {
   const frameWithDirection = (direction === -1 ? 20 : 0) + currentFrame;
 
-  // Clear scene and rebuild
-  scene.o = [];
-  
-  // Render both maps - active with normal sprites, inactive with transparent
-  if (currentMap === map1) {
-    renderMap(map1, 0, "map1", false);
-    renderMap(map2, -2, "map2", true);
-  } else {
-    renderMap(map2, -2, "map2", false);
-    renderMap(map1, 0, "map1", true);
+  // Only rebuild static objects if map changed
+  if (lastRenderedMap !== currentMap) {
+    staticObjects = [];
+    coinObjects = [];
+    
+    // Build static objects for both maps
+    if (currentMap === map1) {
+      staticObjects.push(...buildStaticObjects(map1, 0, false)); // Active map
+      staticObjects.push(...buildStaticObjects(map2, -2, true)); // Inactive map
+      coinObjects.push(...buildCoinObjects(map1, 0, false)); // Active coins
+      coinObjects.push(...buildCoinObjects(map2, -2, true)); // Inactive coins
+    } else {
+      staticObjects.push(...buildStaticObjects(map2, -2, false)); // Active map
+      staticObjects.push(...buildStaticObjects(map1, 0, true)); // Inactive map
+      coinObjects.push(...buildCoinObjects(map2, -2, false)); // Active coins
+      coinObjects.push(...buildCoinObjects(map1, 0, true)); // Inactive coins
+    }
+    
+    lastRenderedMap = currentMap;
   }
   
-  // Update camera and player
-  scene.c.p[0] = -player.x;
-  scene.c.p[1] = -player.y;
+  // Update only what changes each frame
+  updateCoinRotations(); // Update coin rotations
   
+  // Update player
   player.cat.p[0] = player.x;
   player.cat.p[1] = player.y;
   player.cat.p[2] = 0;
   player.cat.t = sprites[frameWithDirection];
   
-  scene.o.push(player.cat);
+  // Update camera
+  scene.c.p[0] = -player.x;
+  scene.c.p[1] = -player.y;
+  
+  // Build final scene (static objects + animated objects + player)
+  scene.o = [...staticObjects, ...coinObjects, player.cat];
 }
 
 let sprites = []; // Global sprites array
@@ -612,6 +644,78 @@ function parseImagesFromSheet() {
   };
 }
 
+// Build static objects for a map (cubes, platforms, etc.)
+function buildStaticObjects(map, zValue, useTransparent = false) {
+  const objects = [];
+  const numSprites = sprites.length / 3;
+  const spriteOffset = useTransparent ? numSprites * 2 : 0;
+  const cubeSize = [0.5, 0.5, 0.5];
+  
+  for (let row = 0; row < mapHeight; row++) {
+    const mapRow = map[row];
+    const worldY = mapHeight - 1 - row;
+    
+    for (let x = 0; x < mapWidth; x++) {
+      const char = mapRow[x];
+      const position = [x, worldY, zValue];
+      
+      switch (char) {
+        case "#":
+          objects.push({ m: "cube", s: cubeSize, p: position, t: sprites[18 + spriteOffset] });
+          break;
+        case "^":
+          objects.push({ m: "cube", s: cubeSize, p: position, t: sprites[19 + spriteOffset] });
+          break;
+        case "A":
+          objects.push({ m: "cube", s: cubeSize, p: position, t: sprites[17 + spriteOffset] });
+          break;
+      }
+    }
+  }
+  
+  return objects;
+}
+
+// Build coin objects for a map
+function buildCoinObjects(map, zValue, useTransparent = false) {
+  const objects = [];
+  const numSprites = sprites.length / 3;
+  const spriteOffset = useTransparent ? numSprites * 2 : 0;
+  const planeSize = [0.5, 0.5, 0];
+  
+  for (let row = 0; row < mapHeight; row++) {
+    const mapRow = map[row];
+    const worldY = mapHeight - 1 - row;
+    
+    for (let x = 0; x < mapWidth; x++) {
+      const char = mapRow[x];
+      if (char === "P") {
+        objects.push({
+          m: "plane",
+          s: planeSize,
+          p: [x, worldY, zValue],
+          r: [0, 0, 0], // Will be updated each frame
+          t: sprites[16 + spriteOffset],
+          originalX: x,
+          originalY: worldY,
+          originalZ: zValue
+        });
+      }
+    }
+  }
+  
+  return objects;
+}
+
+// Update coin rotations (only thing that changes for coins)
+function updateCoinRotations() {
+  const rotationY = (Date.now() * 0.1) % 360;
+  for (const coin of coinObjects) {
+    coin.r[1] = rotationY;
+  }
+}
+
+// Original renderMap function (for compatibility with init)
 function renderMap(map, zValue, mapName, useTransparent = false) {
   const numSprites = sprites.length / 3;
   const spriteOffset = useTransparent ? numSprites * 2 : 0;
@@ -647,7 +751,6 @@ function renderMap(map, zValue, mapName, useTransparent = false) {
           });
           break;
       }
-
     }
   }
 }
@@ -695,17 +798,22 @@ function init() {
   stopGameLoop();
   
   initMap(map1);
-  renderMap(map1, 0, "map1")
-  renderMap(map2, -1, "map2")
+  
+  // Initialize player object
   scene.o.push({
     m: "plane",
     n: "cat",
     s: [player.w, player.h],
-    p: [0,0, -4],
+    p: [0, 0, -4],
     r: [0, 0, 0],
     t: sprites[8],
   });
-  player.cat = scene.o.find((item, index) => item.n === 'cat')
+  player.cat = scene.o.find((item, index) => item.n === 'cat');
+  
+  // Reset rendering cache to force rebuild
+  staticObjects = [];
+  coinObjects = [];
+  lastRenderedMap = null;
   
   // Initialize game state and start timer
   if (gameState === "waiting") {

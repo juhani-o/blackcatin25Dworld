@@ -56,6 +56,10 @@ W = {
     return cube();
   },
 
+  reset: () => {
+    this._state = null;
+  },
+
   render: (scene, gl, aspectratio) => {
     const s = W._getState(gl);
     gl.useProgram(s.program);
