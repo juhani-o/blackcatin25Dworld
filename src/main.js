@@ -1,11 +1,14 @@
 import "./w.js";
 import zzfx from "./ZzFXMicro.min.js";
-import { map1, map2 } from "./maps/maps.js";
+import { map1 as originalMap1, map2 as originalMap2 } from "./maps/maps.js";
 import spritesheet from "./assets/spritesheet.png";
 import desertSvg from "./assets/desert.svg";
 
 const canvas = document.getElementById("myCanvas");
-const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
+const gl = canvas.getContext("webgl2", {
+  antialias: false,
+  preserveDrawingBuffer: true,
+});
 
 // Constants
 const TILE_SIZE = 1;
@@ -21,32 +24,34 @@ let mapWidth = 0;
 let mapHeight = 0;
 let currentMap = null;
 
+// Working copies of maps (coins can be removed during gameplay)
+let map1 = [...originalMap1];
+let map2 = [...originalMap2];
 
 // Scene definition - contains objects to render
 // Based on https://xem.github.io/microW/ with modifications
 
 const scene = {
-
   // Background color (rgb)
-  b: { c: [0,0,0,0] },
-  
+  b: { c: [0, 0, 0, 0] },
+
   // Camera position and rotation
-  c: {p: [6, 5, -10], r: [0, 0, 0]},
-  
+  c: { p: [6, 5, -10], r: [0, 0, 0] },
+
   // Diffuse light position and color
-  d: {p: [.5, -.3, -.7], c: [1, 1, 1]},
-  
+  d: { p: [0.5, -0.3, -0.7], c: [1, 1, 1] },
+
   // Ambient light color
-  a: {c: [0.3, 0.3, 0.2]},
-  
+  a: { c: [0.3, 0.3, 0.2] },
+
   // Objects to render (model, size, position, rotation, color)
-  o: []
+  o: [],
 };
 
 // Rendering optimization - separate static and dynamic objects
 let staticObjects = []; // Cached static map objects
 let lastRenderedMap = null; // Track when map changes
-let coinObjects = []; // Cached coin objects (need rotation updates)
+let pawObjects = []; // Cached paw objects (need rotation updates)
 
 // Camera state (unused - keeping for compatibility)
 // let cameraZ = 10;
@@ -57,9 +62,9 @@ let player = {
   x: 6,
   y: 5,
   z: 0.5,
-  w: .75, 
-  h: .75,
-  speed: 0.1,
+  w: 0.75,
+  h: 0.75,
+  speed: 0.15,
   vy: 0,
   onGround: false,
 };
@@ -84,9 +89,9 @@ let keys = {};
 // Teleport state to avoid repeated toggles while staying on the tile
 let wasOnTeleport = false;
 
-// Handles time counter and coins
+// Handles time counter and paws
 let userTime = document.getElementById("time");
-let userCoins = document.getElementById("coins");
+let userPaws = document.getElementById("coins");
 
 // Set the background image source
 document.getElementById("backgroundImg").src = desertSvg;
@@ -96,8 +101,8 @@ const GAME_DURATION = 5 * 60 * 1000; // 5 minutes
 let gameStartTime = null;
 let gameEndTime = null;
 let gameState = "waiting"; // "waiting", "running", "ended"
-let totalCoins = 0;
-let collectedCoins = 0;
+let totalPaws = 0;
+let collectedPaws = 0;
 
 function initMap(map) {
   currentMap = map;
@@ -105,16 +110,15 @@ function initMap(map) {
   mapHeight = map.length;
 }
 
-function countTotalCoins() {
+function countTotalPaws() {
   let count = 0;
-  // Count coins in map1
-  for (let row of map1) {
+  // Count paws in original maps
+  for (let row of originalMap1) {
     for (let char of row) {
       if (char === "P") count++;
     }
   }
-  // Count coins in map2
-  for (let row of map2) {
+  for (let row of originalMap2) {
     for (let char of row) {
       if (char === "P") count++;
     }
@@ -122,29 +126,35 @@ function countTotalCoins() {
   return count;
 }
 
+function restoreOriginalMaps() {
+  // Restore working maps from original maps
+  map1 = [...originalMap1];
+  map2 = [...originalMap2];
+}
+
 function updateStatusDisplay() {
-  if (userTime && userCoins) {
+  if (userTime && userPaws) {
     if (gameState === "running" && gameStartTime) {
       const elapsed = Date.now() - gameStartTime;
       const remaining = Math.max(0, GAME_DURATION - elapsed);
       const minutes = Math.floor(remaining / 60000);
       const seconds = Math.floor((remaining % 60000) / 1000);
-      userTime.textContent = `Time: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+      userTime.textContent = `Time: ${minutes}:${seconds.toString().padStart(2, "0")}`;
     } else {
       userTime.textContent = "Time: 5:00";
     }
-    userCoins.textContent = `Coins: ${collectedCoins}/${totalCoins}`;
+    userPaws.textContent = `Paws: ${collectedPaws}/${totalPaws}`;
   }
 }
 
 function checkGameEnd() {
   if (gameState !== "running") return;
-  
+
   const elapsed = Date.now() - gameStartTime;
   const timeUp = elapsed >= GAME_DURATION;
-  const allCoinsCollected = collectedCoins >= totalCoins;
-  
-  if (timeUp || allCoinsCollected) {
+  const allPawsCollected = collectedPaws >= totalPaws;
+
+  if (timeUp || allPawsCollected) {
     gameState = "ended";
     gameEndTime = Date.now();
     showSummaryWindow();
@@ -155,10 +165,10 @@ function showSummaryWindow() {
   const elapsed = gameEndTime - gameStartTime;
   const minutes = Math.floor(elapsed / 60000);
   const seconds = Math.floor((elapsed % 60000) / 1000);
-  const completionPercentage = Math.round((collectedCoins / totalCoins) * 100);
-  
-  const summaryWindow = document.createElement('div');
-  summaryWindow.id = 'summaryWindow';
+  const completionPercentage = Math.round((collectedPaws / totalPaws) * 100);
+
+  const summaryWindow = document.createElement("div");
+  summaryWindow.id = "summaryWindow";
   summaryWindow.style.cssText = `
     position: fixed;
     top: 50%;
@@ -176,19 +186,19 @@ function showSummaryWindow() {
     text-align: center;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
   `;
-  
-  const isComplete = collectedCoins >= totalCoins;
+
+  const isComplete = collectedPaws >= totalPaws;
   const reason = isComplete ? "Great! You did it!" : "Time's up!";
   const reasonColor = isComplete ? "#00ff00" : "#ff6b6b";
-  
+
   summaryWindow.innerHTML = `
     <h2 style="margin-top: 0; color: #ffd700; font-size: 24px;">Game Summary</h2>
     <p style="font-size: 20px; color: ${reasonColor}; font-weight: bold; margin: 15px 0;">${reason}</p>
     <div style="margin: 20px 0; font-size: 16px;">
-      <p><strong>Time Used:</strong> ${minutes}:${seconds.toString().padStart(2, '0')}</p>
-      <p><strong>Coins Collected:</strong> ${collectedCoins}/${totalCoins}</p>
+      <p><strong>Time Used:</strong> ${minutes}:${seconds.toString().padStart(2, "0")}</p>
+      <p><strong>Paws Collected:</strong> ${collectedPaws}/${totalPaws}</p>
       <p><strong>Completion:</strong> ${completionPercentage}%</p>
-      ${isComplete ? '<p style="color: #00ff00; font-weight: bold;">Perfect Score!</p>' : ''}
+      ${isComplete ? '<p style="color: #00ff00; font-weight: bold;">Perfect Score!</p>' : ""}
     </div>
     <div style="margin-top: 25px;">
       <button onclick="restartGame()" style="
@@ -204,36 +214,35 @@ function showSummaryWindow() {
       ">Play Again</button>
     </div>
   `;
-  
+
   document.body.appendChild(summaryWindow);
 }
 
 function restartGame() {
   // Stop current game loop to prevent multiple loops
   stopGameLoop();
-  
+
   // Reset game state
   gameState = "waiting";
   gameStartTime = null;
   gameEndTime = null;
-  collectedCoins = 0;
-  
+  collectedPaws = 0;
+
   // Remove summary window
-  const summaryWindow = document.getElementById('summaryWindow');
+  const summaryWindow = document.getElementById("summaryWindow");
   if (summaryWindow) summaryWindow.remove();
-  
+
   // Reset rendering cache
   staticObjects = [];
-  coinObjects = [];
   lastRenderedMap = null;
   scene.o = [];
-  
+
   // Reset player position
   player.x = 6;
   player.y = 5;
   player.vy = 0;
   player.onGround = false;
-  
+
   // Restart the game
   init();
 }
@@ -242,7 +251,7 @@ function restartGame() {
 window.restartGame = restartGame;
 
 // Cleanup on page unload to prevent memory leaks
-window.addEventListener('beforeunload', () => {
+window.addEventListener("beforeunload", () => {
   stopGameLoop();
 });
 
@@ -251,21 +260,21 @@ function isSolid(tileX, tileY) {
   if (tileX < 0 || tileX >= mapWidth) return false;
   if (tileY < 0 || tileY >= mapHeight) return false;
   const tile = currentMap[mapHeight - 1 - tileY][tileX];
-  return tile !== "." && tile !== "P"; // P tiles are not solid (collectible coins)
+  return tile !== "." && tile !== "P"; // P tiles are not solid (collectible paws)
 }
 
-function collectCoin() {
-  // Check multiple tiles around the player for coins
+function collectPaw() {
+  // Check multiple tiles around the player for paws
   const playerLeft = Math.floor(player.x);
   const playerRight = Math.floor(player.x + player.w * 2);
   const playerTop = Math.floor(player.y + player.h * 2);
   const playerBottom = Math.floor(player.y);
-  
+
   // Check all tiles the player occupies
   for (let tx = playerLeft; tx <= playerRight; tx++) {
     for (let ty = playerBottom; ty <= playerTop; ty++) {
       const mapY = mapHeight - 1 - ty;
-      
+
       if (
         tx >= 0 &&
         tx < mapWidth &&
@@ -273,32 +282,57 @@ function collectCoin() {
         mapY < mapHeight &&
         currentMap[mapY][tx] === "P"
       ) {
-        // Remove the coin by replacing "P" with "."
-        currentMap[mapY] = currentMap[mapY].substring(0, tx) + "." + currentMap[mapY].substring(tx + 1);
-        
-        // Remove coin from cached coin objects - check both active and inactive maps
-        const coinIndex = coinObjects.findIndex(coin => 
-          coin.originalX === tx && coin.originalY === mapHeight - 1 - ty
+        // Remove the paw by replacing "P" with "."
+        currentMap[mapY] =
+          currentMap[mapY].substring(0, tx) +
+          "." +
+          currentMap[mapY].substring(tx + 1);
+
+        // Remove paw from cached paw objects - check both active and inactive maps
+        const pawIndex = pawObjects.findIndex(
+          (paw) => paw.originalX === tx && paw.originalY === mapHeight - 1 - ty,
         );
-        if (coinIndex !== -1) {
-          coinObjects.splice(coinIndex, 1);
+        if (pawIndex !== -1) {
+          pawObjects.splice(pawIndex, 1);
         }
-        
-        // Force scene rebuild to reflect coin removal
+
+        // Force scene rebuild to reflect paw removal
         lastRenderedMap = null;
-        
-        // Play coin sound
-        zzfx(2,.05,331,.02,.06,.26,0,2.5,0,0,482,.09,.02,0,0,0,.04,.55,.03,0,0);
-        
-        // Update collected coins count
-        collectedCoins++;
+
+        // Play paw sound
+        zzfx(
+          2,
+          0.05,
+          331,
+          0.02,
+          0.06,
+          0.26,
+          0,
+          2.5,
+          0,
+          0,
+          482,
+          0.09,
+          0.02,
+          0,
+          0,
+          0,
+          0.04,
+          0.55,
+          0.03,
+          0,
+          0,
+        );
+
+        // Update collected paws count
+        collectedPaws++;
         updateStatusDisplay();
-        
-        return true; // Coin collected
+
+        return true; // Paw collected
       }
     }
   }
-  return false; // No coin collected
+  return false; // No paw collected
 }
 
 function moveAndCollide(x, y, w, h, dx, dy) {
@@ -306,13 +340,13 @@ function moveAndCollide(x, y, w, h, dx, dy) {
   let newY = y + dy;
   let collidedX = false;
   let collidedY = false;
-  
+
   // X collision
   const leftX = Math.floor((newX - w) / TILE_SIZE);
   const rightX = Math.floor((newX + w * 2) / TILE_SIZE);
   const startY = Math.floor(y / TILE_SIZE);
   const endY = Math.floor((y + h - EPS) / TILE_SIZE);
-  
+
   for (let tileY = startY; tileY <= endY; tileY++) {
     if (dx > 0 && isSolid(rightX, tileY)) {
       collidedX = true;
@@ -325,11 +359,11 @@ function moveAndCollide(x, y, w, h, dx, dy) {
       break;
     }
   }
-  
+
   // Y collision
   const leftY = Math.floor(newX / TILE_SIZE);
   const rightY = Math.floor((newX + w - EPS) / TILE_SIZE);
-  
+
   for (let tileX = leftY; tileX <= rightY; tileX++) {
     if (dy > 0 && isSolid(tileX, Math.floor((newY + h - EPS) / TILE_SIZE))) {
       collidedY = true;
@@ -361,33 +395,59 @@ document.addEventListener("keydown", handleKeyDown);
 document.addEventListener("keyup", handleKeyUp);
 
 // Game loop state
-let lastTime = 0;
 let animationId = null;
+let lastFrameTime = null;
 
-function gameLoop() {
-  if (gameState === "running") {
-  update();
-  draw();
-    checkGameEnd();
-    updateStatusDisplay();
+function gameLoop(timestamp) {
+  // Initialize lastFrameTime on first call
+  if (lastFrameTime === null) {
+    lastFrameTime = timestamp;
   }
-  
+
+  // Calculate the time difference since the last frame
+  const deltaTime = timestamp - lastFrameTime;
+
+  if (deltaTime >= FRAME_TIME) {
+    // Only run the game logic if enough time has passed
+    if (gameState === "running") {
+      update();
+      draw();
+      checkGameEnd();
+      updateStatusDisplay();
+    }
+    W.render(scene, gl, 1.5);
+    lastFrameTime = timestamp;
+  }
+
+  // Request the next frame, regardless of whether the logic ran
   animationId = requestAnimationFrame(gameLoop);
-  W.render(scene, gl, 1.5); // Fixed aspect ratio
 }
+//function gameLoop() {
+//  if (gameState === "running") {
+// update();
+//  draw();
+//    checkGameEnd();
+//   updateStatusDisplay();
+// }
+
+//  animationId = requestAnimationFrame(gameLoop);
+//  W.render(scene, gl, 1.5); // Fixed aspect ratio
+//}
 
 function stopGameLoop() {
   if (animationId) {
     cancelAnimationFrame(animationId);
     animationId = null;
   }
+  // Reset frame timing for next game start
+  lastFrameTime = null;
 }
 
 function checkTileBelowPlayer(tileType) {
   const playerBottomY = Math.floor(player.y - 0.1);
   const playerCenterX = Math.floor(player.x + player.w / 2);
   const mapY = mapHeight - 1 - playerBottomY;
-  
+
   if (
     playerCenterX >= 0 &&
     playerCenterX < mapWidth &&
@@ -424,24 +484,68 @@ function update() {
   // Teleporting functionality
   const isUserOnTeleport = checkTileBelowPlayer("^");
   if (isUserOnTeleport && !wasOnTeleport && player.onGround) {
-      if (currentMap === map1) {
-        currentMap = map2;
-      } else if (currentMap === map2) {
-        currentMap = map1;
-      }
+    if (currentMap === map1) {
+      currentMap = map2;
+    } else if (currentMap === map2) {
+      currentMap = map1;
+    }
     // Teleport sound
-    zzfx(1,.05,882,0,.09,.01,2,1.2,-27,-30,0,0,0,.1,0,0,0,.84,.47,0,0);
+    zzfx(
+      1,
+      0.05,
+      882,
+      0,
+      0.09,
+      0.01,
+      2,
+      1.2,
+      -27,
+      -30,
+      0,
+      0,
+      0,
+      0.1,
+      0,
+      0,
+      0,
+      0.84,
+      0.47,
+      0,
+      0,
+    );
   }
   wasOnTeleport = isUserOnTeleport;
 
-  // Collect coins
-  collectCoin();
+  // Collect paws
+  collectPaw();
 
   if ((keys[" "] || keys["Space"]) && player.onGround) {
     player.vy = JUMP_FORCE;
     player.onGround = false;
     // Jump sound
-    zzfx(.8,.05,320,.01,.03,.06,1,.2,0,145,0,0,0,0,0,0,0,.98,.01,0,-1117);
+    zzfx(
+      0.8,
+      0.05,
+      320,
+      0.01,
+      0.03,
+      0.06,
+      1,
+      0.2,
+      0,
+      145,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.98,
+      0.01,
+      0,
+      -1117,
+    );
   }
   player.vy += GRAVITY;
   if (player.vy < MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
@@ -461,7 +565,29 @@ function update() {
   if (res.collidedY && player.vy <= 0) {
     if (!player.onGround) {
       // Land sound
-      zzfx(2,.05,249,.03,0,.04,4,2.8,0,-10,0,0,0,1.8,0,.2,.14,.97,.01,0,0);
+      zzfx(
+        2,
+        0.05,
+        249,
+        0.03,
+        0,
+        0.04,
+        4,
+        2.8,
+        0,
+        -10,
+        0,
+        0,
+        0,
+        1.8,
+        0,
+        0.2,
+        0.14,
+        0.97,
+        0.01,
+        0,
+        0,
+      );
     }
     player.onGround = true;
     player.vy = 0;
@@ -505,39 +631,33 @@ function draw() {
   // Only rebuild static objects if map changed
   if (lastRenderedMap !== currentMap) {
     staticObjects = [];
-    coinObjects = [];
-    
+
     // Build static objects for both maps
     if (currentMap === map1) {
-      staticObjects.push(...buildStaticObjects(map1, 0, false)); // Active map
-      staticObjects.push(...buildStaticObjects(map2, -2, true)); // Inactive map
-      coinObjects.push(...buildCoinObjects(map1, 0, false)); // Active coins
-      coinObjects.push(...buildCoinObjects(map2, -2, true)); // Inactive coins
+      staticObjects.push(...buildMapWithPaws(map1, 0, false)); // Active map
+      staticObjects.push(...buildMapWithPaws(map2, -2, true)); // Inactive map
     } else {
-      staticObjects.push(...buildStaticObjects(map2, -2, false)); // Active map
-      staticObjects.push(...buildStaticObjects(map1, 0, true)); // Inactive map
-      coinObjects.push(...buildCoinObjects(map2, -2, false)); // Active coins
-      coinObjects.push(...buildCoinObjects(map1, 0, true)); // Inactive coins
+      staticObjects.push(...buildMapWithPaws(map2, -2, false)); // Active map
+      staticObjects.push(...buildMapWithPaws(map1, 0, true)); // Inactive map
     }
-    
+
     lastRenderedMap = currentMap;
   }
-  
+
   // Update only what changes each frame
-  updateCoinRotations(); // Update coin rotations
-  
+
   // Update player
   player.cat.p[0] = player.x;
   player.cat.p[1] = player.y;
   player.cat.p[2] = 0;
   player.cat.t = sprites[frameWithDirection];
-  
+
   // Update camera
   scene.c.p[0] = -player.x;
   scene.c.p[1] = -player.y;
-  
+
   // Build final scene (static objects + animated objects + player)
-  scene.o = [...staticObjects, ...coinObjects, player.cat];
+  scene.o = [...staticObjects, player.cat];
 }
 
 let sprites = []; // Global sprites array
@@ -644,115 +764,61 @@ function parseImagesFromSheet() {
   };
 }
 
-// Build static objects for a map (cubes, platforms, etc.)
-function buildStaticObjects(map, zValue, useTransparent = false) {
+// Build static objects for a map (cubes, paws, platforms, etc.)
+function buildMapWithPaws(map, zValue, useTransparent = false) {
   const objects = [];
   const numSprites = sprites.length / 3;
   const spriteOffset = useTransparent ? numSprites * 2 : 0;
   const cubeSize = [0.5, 0.5, 0.5];
-  
+
   for (let row = 0; row < mapHeight; row++) {
     const mapRow = map[row];
     const worldY = mapHeight - 1 - row;
-    
+
     for (let x = 0; x < mapWidth; x++) {
       const char = mapRow[x];
       const position = [x, worldY, zValue];
-      
+      const pawPosition = [x, worldY, zValue - 1];
+
       switch (char) {
         case "#":
-          objects.push({ m: "cube", s: cubeSize, p: position, t: sprites[18 + spriteOffset] });
+          objects.push({
+            m: "cube",
+            s: cubeSize,
+            p: position,
+            t: sprites[18 + spriteOffset],
+          });
           break;
         case "^":
-          objects.push({ m: "cube", s: cubeSize, p: position, t: sprites[19 + spriteOffset] });
+          objects.push({
+            m: "cube",
+            s: cubeSize,
+            p: position,
+            t: sprites[19 + spriteOffset],
+          });
           break;
         case "A":
-          objects.push({ m: "cube", s: cubeSize, p: position, t: sprites[17 + spriteOffset] });
-          break;
-      }
-    }
-  }
-  
-  return objects;
-}
-
-// Build coin objects for a map
-function buildCoinObjects(map, zValue, useTransparent = false) {
-  const objects = [];
-  const numSprites = sprites.length / 3;
-  const spriteOffset = useTransparent ? numSprites * 2 : 0;
-  const planeSize = [0.5, 0.5, 0];
-  
-  for (let row = 0; row < mapHeight; row++) {
-    const mapRow = map[row];
-    const worldY = mapHeight - 1 - row;
-    
-    for (let x = 0; x < mapWidth; x++) {
-      const char = mapRow[x];
-      if (char === "P") {
-        objects.push({
-          m: "plane",
-          s: planeSize,
-          p: [x, worldY, zValue],
-          r: [0, 0, 0], // Will be updated each frame
-          t: sprites[16 + spriteOffset],
-          originalX: x,
-          originalY: worldY,
-          originalZ: zValue
-        });
-      }
-    }
-  }
-  
-  return objects;
-}
-
-// Update coin rotations (only thing that changes for coins)
-function updateCoinRotations() {
-  const rotationY = (Date.now() * 0.1) % 360;
-  for (const coin of coinObjects) {
-    coin.r[1] = rotationY;
-  }
-}
-
-// Original renderMap function (for compatibility with init)
-function renderMap(map, zValue, mapName, useTransparent = false) {
-  const numSprites = sprites.length / 3;
-  const spriteOffset = useTransparent ? numSprites * 2 : 0;
-  const cubeSize = [0.5, 0.5, 0.5];
-  const planeSize = [0.5, 0.5, 0];
-  
-  for (let row = 0; row < mapHeight; row++) {
-    const mapRow = map[row];
-    const worldY = mapHeight - 1 - row;
-    
-    for (let x = 0; x < mapWidth; x++) {
-      const char = mapRow[x];
-      const position = [x, worldY, zValue];
-      
-      switch (char) {
-        case "#":
-          scene.o.push({ m: "cube", s: cubeSize, p: position, t: sprites[18 + spriteOffset] });
-          break;
-        case "^":
-          scene.o.push({ m: "cube", s: cubeSize, p: position, t: sprites[19 + spriteOffset] });
-          break;
-        case "A":
-          scene.o.push({ m: "cube", s: cubeSize, p: position, t: sprites[17 + spriteOffset] });
+          objects.push({
+            m: "cube",
+            s: cubeSize,
+            p: position,
+            t: sprites[17 + spriteOffset],
+          });
           break;
         case "P":
-          const rotationY = (Date.now() * 0.1) % 360;
-          scene.o.push({ 
-            m: "plane", 
-            s: planeSize, 
-            p: position, 
-            r: [0, rotationY, 0], 
-            t: sprites[16 + spriteOffset] 
+          objects.push({
+            m: "plane",
+            s: cubeSize,
+            p: pawPosition,
+            r: [0, 0, 0],
+            t: sprites[16 + spriteOffset],
           });
           break;
       }
     }
   }
+
+  return objects;
 }
 
 function showStartMenu() {
@@ -767,12 +833,12 @@ function showStartMenu() {
     background: "rgba(0,0,0,0.8)",
     color: "#ffffff",
     fontFamily: "monospace, sans-serif",
-    fontSize: "20px",
+    fontSize: "24px",
     textAlign: "center",
     cursor: "pointer",
     zIndex: "9999",
   });
-  overlay.textContent = "Black Cat in 2.5D world, click to start";
+  overlay.innerHTML = "Black Cat in 2.5D world<br>Paws are collectable, but time is limited<br>Use WASD to move, Space to jump<br>Collect all paws to win or use all time<br>Jump from jump platforms, jumps higher<br>and use teleports to move between dimensions!";
 
   const parent = canvas.parentElement || document.body;
   if (parent === document.body) {
@@ -796,9 +862,12 @@ function showStartMenu() {
 function init() {
   // Stop any existing game loop to prevent multiple loops
   stopGameLoop();
-  
+
+  // Restore original maps to ensure all coins are available
+  restoreOriginalMaps();
+
   initMap(map1);
-  
+
   // Initialize player object
   scene.o.push({
     m: "plane",
@@ -808,26 +877,25 @@ function init() {
     r: [0, 0, 0],
     t: sprites[8],
   });
-  player.cat = scene.o.find((item, index) => item.n === 'cat');
-  
+  player.cat = scene.o.find((item, index) => item.n === "cat");
+
   // Reset rendering cache to force rebuild
   staticObjects = [];
-  coinObjects = [];
+  pawObjects = [];
   lastRenderedMap = null;
-  
+
   // Initialize game state and start timer
   if (gameState === "waiting") {
-    totalCoins = countTotalCoins();
-    collectedCoins = 0;
+    totalPaws = countTotalPaws();
+    collectedPaws = 0;
     gameState = "running";
     gameStartTime = Date.now();
     updateStatusDisplay();
   }
-  
+
   // Start new game loop
   requestAnimationFrame(gameLoop);
 }
 
 // Not probably best function name, but it's the first one that gets called :)
 parseImagesFromSheet();
-
