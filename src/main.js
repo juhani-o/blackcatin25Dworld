@@ -7,21 +7,23 @@ import desertSvg from "./assets/desert.svg";
 const canvas = document.getElementById("myCanvas");
 const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: true });
 
-// Consts, basic settings
+// Constants
 const TILE_SIZE = 1;
 const EPS = 0.001;
 const GRAVITY = -0.015;
 const JUMP_FORCE = 0.35;
 const MAX_FALL_SPEED = -0.25;
-const NORMAL_FPS = 60;
+const TARGET_FPS = 60;
+const FRAME_TIME = 1000 / TARGET_FPS;
 
-let mapWidth,
-  mapHeight = 0;
+// Map state
+let mapWidth = 0;
+let mapHeight = 0;
 let currentMap = null;
 
 
-// Let's define allmost empty scene. "o" contains objects to rendet.
-// https://xem.github.io/microW/ with slight modifications
+// Scene definition - contains objects to render
+// Based on https://xem.github.io/microW/ with modifications
 
 const scene = {
 
@@ -43,9 +45,9 @@ const scene = {
   ]
 };
 
-// Initial camera position camera
-let z = 10;
-let rot = 0;
+// Camera state (unused - keeping for compatibility)
+// let cameraZ = 10;
+// let cameraRotation = 0;
 
 // Player object. Static start point, time ran out.
 let player = {
@@ -86,8 +88,8 @@ let userCoins = document.getElementById("coins");
 // Set the background image source
 document.getElementById("backgroundImg").src = desertSvg;
 
-// Game timer and statistics
-const GAME_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+// Game state
+const GAME_DURATION = 5 * 60 * 1000; // 5 minutes
 let gameStartTime = null;
 let gameEndTime = null;
 let gameState = "waiting"; // "waiting", "running", "ended"
@@ -238,11 +240,11 @@ window.addEventListener('beforeunload', () => {
   stopGameLoop();
 });
 
-// ----- Collision Helpers -----
-function isSolid(tx, ty) {
-  if (tx < 0 || tx >= mapWidth) return false;
-  if (ty < 0 || ty >= mapHeight) return false;
-  const tile = currentMap[mapHeight - 1 - ty][tx];
+// Collision detection
+function isSolid(tileX, tileY) {
+  if (tileX < 0 || tileX >= mapWidth) return false;
+  if (tileY < 0 || tileY >= mapHeight) return false;
+  const tile = currentMap[mapHeight - 1 - tileY][tileX];
   return tile !== "." && tile !== "P"; // P tiles are not solid (collectible coins)
 }
 
@@ -267,7 +269,6 @@ function collectCoin() {
       ) {
         // Remove the coin by replacing "P" with "."
         currentMap[mapY] = currentMap[mapY].substring(0, tx) + "." + currentMap[mapY].substring(tx + 1);
-        console.log("Coin collected");
         // Collect coin sound
         zzfx(2,.05,331,.02,.06,.26,0,2.5,0,0,482,.09,.02,0,0,0,.04,.55,.03,0,0);
         
@@ -283,42 +284,67 @@ function collectCoin() {
 }
 
 function moveAndCollide(x, y, w, h, dx, dy) {
-  let newX = x + dx, newY = y + dy, collidedX = false, collidedY = false;
+  let newX = x + dx;
+  let newY = y + dy;
+  let collidedX = false;
+  let collidedY = false;
   
   // X collision
-  let leftX = Math.floor((newX - (w)) / TILE_SIZE)
-  let rightX = Math.floor((newX + (w * 2)) / TILE_SIZE);
-  for (let ty = Math.floor(y / TILE_SIZE); ty <= Math.floor((y + h - EPS) / TILE_SIZE); ty++) {
-    if (dx > 0 && isSolid(rightX, ty)) { collidedX = true; newX = (rightX - (w * 2)) * TILE_SIZE; break; }
-    if (dx < 0 && isSolid(leftX, ty)) { collidedX = true; newX = (leftX + (w * 2)) * TILE_SIZE; break; }
+  const leftX = Math.floor((newX - w) / TILE_SIZE);
+  const rightX = Math.floor((newX + w * 2) / TILE_SIZE);
+  const startY = Math.floor(y / TILE_SIZE);
+  const endY = Math.floor((y + h - EPS) / TILE_SIZE);
+  
+  for (let tileY = startY; tileY <= endY; tileY++) {
+    if (dx > 0 && isSolid(rightX, tileY)) {
+      collidedX = true;
+      newX = (rightX - w * 2) * TILE_SIZE;
+      break;
+    }
+    if (dx < 0 && isSolid(leftX, tileY)) {
+      collidedX = true;
+      newX = (leftX + w * 2) * TILE_SIZE;
+      break;
+    }
   }
   
   // Y collision
-  let leftY = Math.floor(newX / TILE_SIZE), rightY = Math.floor((newX + w - EPS) / TILE_SIZE);
-  for (let tx = leftY; tx <= rightY; tx++) {
-    if (dy > 0 && isSolid(tx, Math.floor((newY + h - EPS) / TILE_SIZE))) { collidedY = true; newY = Math.floor((newY + h - EPS) / TILE_SIZE) * TILE_SIZE - h; break; }
-    if (dy < 0 && isSolid(tx, Math.floor(newY / TILE_SIZE))) { collidedY = true; newY = (Math.floor(newY / TILE_SIZE) + 1) * TILE_SIZE; break; }
+  const leftY = Math.floor(newX / TILE_SIZE);
+  const rightY = Math.floor((newX + w - EPS) / TILE_SIZE);
+  
+  for (let tileX = leftY; tileX <= rightY; tileX++) {
+    if (dy > 0 && isSolid(tileX, Math.floor((newY + h - EPS) / TILE_SIZE))) {
+      collidedY = true;
+      newY = Math.floor((newY + h - EPS) / TILE_SIZE) * TILE_SIZE - h;
+      break;
+    }
+    if (dy < 0 && isSolid(tileX, Math.floor(newY / TILE_SIZE))) {
+      collidedY = true;
+      newY = (Math.floor(newY / TILE_SIZE) + 1) * TILE_SIZE;
+      break;
+    }
   }
   
   return { x: newX, y: newY, collidedX, collidedY };
 }
 
-// ----- Input -----
-document.addEventListener("keydown", (e) => {
-  const k = e.code === "Space" ? "Space" : e.key.toLowerCase();
-  keys[k] = true;
-});
+// Input handling
+const handleKeyDown = (e) => {
+  const key = e.code === "Space" ? "Space" : e.key.toLowerCase();
+  keys[key] = true;
+};
 
-document.addEventListener("keyup", (e) => {
-  const k = e.code === "Space" ? "Space" : e.key.toLowerCase();
-  keys[k] = false;
-});
+const handleKeyUp = (e) => {
+  const key = e.code === "Space" ? "Space" : e.key.toLowerCase();
+  keys[key] = false;
+};
 
-// ----- Game Loop -----
+document.addEventListener("keydown", handleKeyDown);
+document.addEventListener("keyup", handleKeyUp);
+
+// Game loop state
 let lastTime = 0;
 let animationId = null;
-const TARGET_FPS = 60;
-const FRAME_TIME = 1000 / TARGET_FPS; // 16.67ms per frame
 
 function gameLoop() {
   if (gameState === "running") {
@@ -327,10 +353,9 @@ function gameLoop() {
     checkGameEnd();
     updateStatusDisplay();
   }
-  let ratio = 600/400;
- 
+  
   animationId = requestAnimationFrame(gameLoop);
-  W.render(scene, gl, ratio)
+  W.render(scene, gl, 1.5); // Fixed aspect ratio
 }
 
 function stopGameLoop() {
@@ -342,16 +367,16 @@ function stopGameLoop() {
 
 function checkTileBelowPlayer(tileType) {
   const playerBottomY = Math.floor(player.y - 0.1);
-  const playerCenterX = player.x + player.w / 2;
-  const playerBottomTileX = Math.floor(playerCenterX);
+  const playerCenterX = Math.floor(player.x + player.w / 2);
   const mapY = mapHeight - 1 - playerBottomY;
+  
   if (
-    playerBottomTileX >= 0 &&
-    playerBottomTileX < mapWidth &&
+    playerCenterX >= 0 &&
+    playerCenterX < mapWidth &&
     mapY >= 0 &&
     mapY < mapHeight
   ) {
-    return currentMap[mapY][playerBottomTileX] === tileType;
+    return currentMap[mapY][playerCenterX] === tileType;
   }
   return false;
 }
@@ -360,12 +385,12 @@ function update() {
   let dx = 0;
   let isMoving = false;
 
+  // Handle horizontal movement
   if (keys["a"] && !keys["d"]) {
     dx = -player.speed;
     isMoving = true;
     direction = -1;
-  }
-  if (keys["d"] && !keys["a"]) {
+  } else if (keys["d"] && !keys["a"]) {
     dx = player.speed;
     isMoving = true;
     direction = 1;
@@ -457,32 +482,33 @@ function update() {
 }
 
 function draw() {
-  let frameWithDirection = (direction === -1 ? 20 : 0) + currentFrame;
+  const frameWithDirection = (direction === -1 ? 20 : 0) + currentFrame;
 
   // Clear scene and rebuild
   scene.o = [];
   
-  
-  // Render both maps at their original z locations - active with normal sprites, inactive with transparent
+  // Render both maps - active with normal sprites, inactive with transparent
   if (currentMap === map1) {
-    renderMap(map1, 0, "map1", false); // Active map - normal sprites
-    renderMap(map2, -2, "map2", true); // Inactive map - transparent sprites at original z
+    renderMap(map1, 0, "map1", false);
+    renderMap(map2, -2, "map2", true);
   } else {
-    renderMap(map2, -2, "map2", false); // Active map - normal sprites at original z
-    renderMap(map1, 0, "map1", true); // Inactive map - transparent sprites at original z
+    renderMap(map2, -2, "map2", false);
+    renderMap(map1, 0, "map1", true);
   }
   
-  // Add player
-  scene.c.p[0] = 0 - player.x
-  scene.c.p[1] = 0 - player.y
-  player.cat.p[0] = player.x
-  player.cat.p[1] = player.y
-  player.cat.p[2] = 0
-  player.cat.t = sprites[frameWithDirection]
+  // Update camera and player
+  scene.c.p[0] = -player.x;
+  scene.c.p[1] = -player.y;
+  
+  player.cat.p[0] = player.x;
+  player.cat.p[1] = player.y;
+  player.cat.p[2] = 0;
+  player.cat.t = sprites[frameWithDirection];
+  
   scene.o.push(player.cat);
 }
 
-let sprites = []; // Varmista, että tämä taulukko on olemassa globaalisti
+let sprites = []; // Global sprites array
 
 function parseImagesFromSheet() {
   const img = new Image();
@@ -587,27 +613,41 @@ function parseImagesFromSheet() {
 }
 
 function renderMap(map, zValue, mapName, useTransparent = false) {
-  const numSprites = sprites.length / 3; // Get original sprite count
-  const spriteOffset = useTransparent ? numSprites * 2 : 0; // Use transparent sprites if requested
+  const numSprites = sprites.length / 3;
+  const spriteOffset = useTransparent ? numSprites * 2 : 0;
+  const cubeSize = [0.5, 0.5, 0.5];
+  const planeSize = [0.5, 0.5, 0];
   
   for (let row = 0; row < mapHeight; row++) {
     const mapRow = map[row];
     const worldY = mapHeight - 1 - row;
+    
     for (let x = 0; x < mapWidth; x++) {
-      const ch = mapRow[x];
-      if (ch === "#") {
-        scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[18 + spriteOffset]})
+      const char = mapRow[x];
+      const position = [x, worldY, zValue];
+      
+      switch (char) {
+        case "#":
+          scene.o.push({ m: "cube", s: cubeSize, p: position, t: sprites[18 + spriteOffset] });
+          break;
+        case "^":
+          scene.o.push({ m: "cube", s: cubeSize, p: position, t: sprites[19 + spriteOffset] });
+          break;
+        case "A":
+          scene.o.push({ m: "cube", s: cubeSize, p: position, t: sprites[17 + spriteOffset] });
+          break;
+        case "P":
+          const rotationY = (Date.now() * 0.1) % 360;
+          scene.o.push({ 
+            m: "plane", 
+            s: planeSize, 
+            p: position, 
+            r: [0, rotationY, 0], 
+            t: sprites[16 + spriteOffset] 
+          });
+          break;
       }
-      if (ch === "^") {
-        scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[19 + spriteOffset]})
-      }
-      if (ch === "A") {
-        scene.o.push({ m: "cube", s: [0.5, 0.5, 0.5], p: [x, worldY, zValue], t: sprites[17 + spriteOffset]})
-      }
-      if (ch === "P") {
-        const rotationY = (Date.now() * 0.1) % 360; // Animate rotation over time
-        scene.o.push({ m: "plane", s: [0.5, 0.5,0], p: [x, worldY, zValue ], r: [0, rotationY, 0], t: sprites[16 + spriteOffset]})
-      }
+
     }
   }
 }
@@ -682,3 +722,4 @@ function init() {
 
 // Not probably best function name, but it's the first one that gets called :)
 parseImagesFromSheet();
+
