@@ -204,6 +204,9 @@ function showSummaryWindow() {
 }
 
 function restartGame() {
+  // Stop current game loop to prevent multiple loops
+  stopGameLoop();
+  
   // Reset game state
   gameState = "waiting";
   gameStartTime = null;
@@ -229,6 +232,11 @@ function restartGame() {
 
 // Make functions globally available
 window.restartGame = restartGame;
+
+// Cleanup on page unload to prevent memory leaks
+window.addEventListener('beforeunload', () => {
+  stopGameLoop();
+});
 
 // ----- Collision Helpers -----
 function isSolid(tx, ty) {
@@ -308,6 +316,7 @@ document.addEventListener("keyup", (e) => {
 
 // ----- Game Loop -----
 let lastTime = 0;
+let animationId = null;
 const TARGET_FPS = 60;
 const FRAME_TIME = 1000 / TARGET_FPS; // 16.67ms per frame
 
@@ -320,8 +329,15 @@ function gameLoop() {
   }
   let ratio = 600/400;
  
-  requestAnimationFrame(gameLoop);
+  animationId = requestAnimationFrame(gameLoop);
   W.render(scene, gl, ratio)
+}
+
+function stopGameLoop() {
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
 }
 
 function checkTileBelowPlayer(tileType) {
@@ -635,6 +651,9 @@ function showStartMenu() {
 
 // Some init stuff, only two maps. Focus was more on smooth graphics than big maps.
 function init() {
+  // Stop any existing game loop to prevent multiple loops
+  stopGameLoop();
+  
   initMap(map1);
   renderMap(map1, 0, "map1")
   renderMap(map2, -1, "map2")
@@ -657,6 +676,7 @@ function init() {
     updateStatusDisplay();
   }
   
+  // Start new game loop
   requestAnimationFrame(gameLoop);
 }
 
